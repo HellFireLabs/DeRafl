@@ -373,10 +373,13 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard {
     /// @dev Gets the royalty fee percentage of an nft. Returns a maximum of 10%
     /// @param nftAddress The address of the token being queried
     function getRoyaltyInfo(address nftAddress) public view returns(address, uint256) {
-        (,address feeReceiver, uint256 royaltyFee) = royaltyFeeRegistry.royaltyFeeInfoCollection(nftAddress);
-        if (feeReceiver == address(0) || royaltyFee == 0) return(address(0), 0);
-        royaltyFee = royaltyFee > MAX_ROYALTY_FEE_PERCENTAGE ? MAX_ROYALTY_FEE_PERCENTAGE : royaltyFee;
-        return(feeReceiver, royaltyFee);
+        try royaltyFeeRegistry.royaltyFeeInfoCollection(nftAddress) returns (address, address feeReceiver, uint256 royaltyFee) {
+            if (feeReceiver == address(0) || royaltyFee == 0) return(address(0), 0);
+            royaltyFee = royaltyFee > MAX_ROYALTY_FEE_PERCENTAGE ? MAX_ROYALTY_FEE_PERCENTAGE : royaltyFee;
+            return(feeReceiver, royaltyFee);
+        } catch {
+            return (address(0), 0);
+        }
     }
 
     /// @dev Requests a random number from chainlink VRF
