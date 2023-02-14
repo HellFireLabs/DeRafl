@@ -278,7 +278,7 @@ describe("DeRafl", function () {
 
         const feeCollectorBalanceAfter = await ethers.provider.getBalance(FEE_COLLECTOR)
         const ethRaised = BigNumber.from('10000').mul(parseEther('0.001'))
-        const deraflFee = ethRaised.mul('3').div('100').add(parseEther('0.005'))
+        const deraflFee = ethRaised.mul('5').div('100').add(parseEther('0.005'))
         const expectedBalance = feeCollectorBalanceBefore.add(deraflFee)
         expect(feeCollectorBalanceAfter).to.equal(expectedBalance)
       });
