@@ -1,0 +1,44 @@
+{
+  "name": "hardhat-project",
+  "scripts": {
+    "docify": "node docify.js",
+    "docs": "npx solidity-docgen --solc-settings “{remappings: [’@openzeppelin=$PWD/node_modules/@openzeppelin’]}"
+  },
+  "devDependencies": {
+    "@ethersproject/abi": "^5.7.0",
+    "@ethersproject/providers": "^5.7.0",
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.3",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.4",
+    "@nomicfoundation/hardhat-toolbox": "^1.0.2",
+    "@nomiclabs/hardhat-ethers": "^2.1.1",
+    "@nomiclabs/hardhat-etherscan": "^3.1.6",
+    "@typechain/ethers-v5": "^10.1.0",
+    "@typechain/hardhat": "^6.1.2",
+    "@types/mocha": "^9.1.1",
+    "chai": "^4.3.6",
+    "directory-tree": "^3.5.1",
+    "ethers": "^5.7.0",
+    "hardhat": "^2.10.2",
+    "hardhat-docgen": "^1.3.0",
+    "hardhat-gas-reporter": "^1.0.8",
+    "highlight.js": "^11.7.0",
+    "markdown-it": "^13.0.1",
+    "markdown-it-emoji": "^2.0.2",
+    "meow": "^11.0.0",
+    "mustache": "^4.2.0",
+    "node-emoji": "^1.11.0",
+    "pdf-from-html": "^0.1.2",
+    "soldoc": "^0.1.3-beta.2",
+    "solidity-coverage": "^0.7.21",
+    "ts-node": "^10.9.1",
+    "typechain": "^8.1.0",
+    "typescript": "^4.7.4"
+  },
+  "dependencies": {
+    "@chainlink/contracts": "^0.4.2",
+    "@openzeppelin/contracts": "^4.7.3",
+    "dotenv": "^16.0.1",
+    "solc": "^0.8.16",
+    "solidity-docgen": "^0.6.0-beta.34"
+  }
+}
