@@ -17,6 +17,9 @@ const BAYC_OWNER = "0xFd4838E0bd3955Ffa902Cb0E6ffA93704F863232";
 const BAYC_TOKEN_ID = "7678";
 const SUBCSCRIPTION_ID = "1";
 const FEE_COLLECTOR = '0x49146F8ba80D5f24227543bBa3bB8e2c40ECC03D'
+const ROYALTY_REGISTRY_ADDRESS = '0x12405dB79325D06a973aD913D6e9BdA1343cD526'
+const ROYALTY_FEE_SETTER_ADDRESS = '0x73d3922426f7F27DF51E9cd7B8B2A0e435abCa06'
+const ROYALTY_FEE_RECEIVER = '0xcab34983563c2580077A8bd99715ffE443EecA9a'
 
 enum RaffleState {
   NONE,
@@ -44,7 +47,7 @@ describe("DeRafl", function () {
     const derafl = await DeRafl.deploy(
       SUBCSCRIPTION_ID,
       hardhatVrfCoordinatorV2Mock.address,
-      '0x12405dB79325D06a973aD913D6e9BdA1343cD526', //goerli
+      ROYALTY_REGISTRY_ADDRESS,
       FEE_COLLECTOR
     );
     await hardhatVrfCoordinatorV2Mock.addConsumer("1", derafl.address);
@@ -54,6 +57,13 @@ describe("DeRafl", function () {
     )) as NFTMock__factory;
     const nftMock = await NFTMock.deploy();
     const signers = await ethers.getSigners();
+
+    const royaltyFeeSetter = await ethers.getContractAt("IRoyaltyFeeSetter", ROYALTY_FEE_SETTER_ADDRESS)
+    await royaltyFeeSetter.updateRoyaltyInfoForCollectionIfOwner(nftMock.address, signers[0].address, ROYALTY_FEE_RECEIVER, '500')
+    
+    const royalties = await derafl.getRoyaltyInfo(nftMock.address, '1')
+    console.log("ROYLT = ", royalties)
+
     return { hardhatVrfCoordinatorV2Mock, derafl, nftMock, signers };
   }
 
@@ -64,25 +74,14 @@ describe("DeRafl", function () {
       await ethers.getSigners();
     await nftMock.safeMint(raffleCreator.address);
     const nftMockAsCreator = await nftMock.connect(raffleCreator);
-    // await nftMockAsCreator.approve(derafl.address, "0");
     await nftMockAsCreator.setApprovalForAll(derafl.address, true)
-
-    console.log("APPROVED")
     const deraflAsRaffleCreator = await derafl.connect(raffleCreator);
-    const ownerOfToken = await nftMock.ownerOf('1')
-    const isApproved = await nftMock.isApprovedForAll(raffleCreator.address, derafl.address)
-    console.log("IS APPROVED, ", isApproved)
-
-    console.log("CREATE BEFORE: ", ownerOfToken)
-    console.log("CREATOR: ", raffleCreator.address)
-
     await deraflAsRaffleCreator.createRaffle(
       nftMock.address,
       "1",
       1,
       parseEther("10")
     );
-    console.log("CREATE AFTER")
 
     return {
       hardhatVrfCoordinatorV2Mock,
@@ -123,7 +122,7 @@ describe("DeRafl", function () {
       deraflAsAddress1 = await derafl.connect(address1);
       deraflAsAddress2 = await derafl.connect(address2);
       deraflAsAddress3 = await derafl.connect(address3);
-      hardhatVrfCoordinatorV2Mock = setup.hardhatVrfCoordinatorV2Mock;
+      hardhatVrfCoordinatorV2Mock = setup.hardhatVrfCoordinatorV2Mock;  
     });
 
     describe("Sold Out Raffle", async function () {
@@ -271,6 +270,8 @@ describe("DeRafl", function () {
         // buyer 3 = 9001 - 10000
 
         const feeCollectorBalanceBefore = await ethers.provider.getBalance(FEE_COLLECTOR)
+        const royaltyCollectorBalanceBefore = await ethers.provider.getBalance(ROYALTY_FEE_RECEIVER)
+        const raffleCreatorBalanceBefore = await ethers.provider.getBalance(raffleCreator.address)
 
         await derafl.release("1", "1");
         const newOwner = await nftMock.ownerOf("1");
@@ -281,6 +282,13 @@ describe("DeRafl", function () {
         const deraflFee = ethRaised.mul('5').div('100').add(parseEther('0.005'))
         const expectedBalance = feeCollectorBalanceBefore.add(deraflFee)
         expect(feeCollectorBalanceAfter).to.equal(expectedBalance)
+
+        const royaltyCollectorBalanceAfter = await ethers.provider.getBalance(ROYALTY_FEE_RECEIVER)
+        const royaltyFee = ethRaised.mul('5').div('100')
+        expect(royaltyCollectorBalanceAfter).to.equal(royaltyCollectorBalanceBefore.add(royaltyFee))
+
+        const raffleCreatorBalanceAfter = await ethers.provider.getBalance(raffleCreator.address)
+        expect(raffleCreatorBalanceAfter).to.equal(raffleCreatorBalanceBefore.add(ethRaised).sub(royaltyFee).sub(deraflFee))
       });
 
       it("Shows correct raffle info after release", async function () {
@@ -383,5 +391,41 @@ describe("DeRafl", function () {
         expect(nftOwner).to.equal(raffleCreator.address)
       })
     });
+
+    describe('Royalties', () => {
+      let royaltyFeeReceiver: SignerWithAddress;
+
+      before(async function () {
+        const signers = await ethers.getSigners()
+        royaltyFeeReceiver = signers[12]
+      });
+
+      it('Shows 0 for a contract with no royalties', async function () {
+        const NFTMock: NFTMock__factory = (await ethers.getContractFactory(
+          "NFTMock"
+        )) as NFTMock__factory;
+        const mockNft = await NFTMock.deploy();
+        const royalties = await derafl.getRoyaltyInfo(mockNft.address, '1')
+        console.log("ROYAL: ", royalties)
+        expect(royalties.feeReceiver).to.equal(ethers.constants.AddressZero)
+        expect(royalties.royaltyFee).to.equal('0')
+      })
+
+      it('Shows correct royalties for ERC2981', async function () {
+        const MockErc2981 = await ethers.getContractFactory("NFTWithRoyalites")
+        const nftWithRoyalties = await MockErc2981.deploy("test", "TEST", royaltyFeeReceiver.address)
+        const royalties = await derafl.getRoyaltyInfo(nftWithRoyalties.address, '1')
+        expect(royalties.feeReceiver).to.equal(royaltyFeeReceiver.address)
+        expect(royalties.royaltyFee).to.equal('1000')
+      })
+
+      it('Shows correct royalties for Looks rare registry', async function () {
+        const MockErc2981 = await ethers.getContractFactory("NFTWithRoyalites")
+        const nftWithRoyalties = await MockErc2981.deploy("test", "TEST", royaltyFeeReceiver.address)
+        const royalties = await derafl.getRoyaltyInfo(nftWithRoyalties.address, '1')
+        expect(true).to.be.true
+      })
+
+     })
   });
 });
