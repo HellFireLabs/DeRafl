@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
-import "hardhat/console.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -8,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./interface/IRoyaltyFeeRegistry.sol";
 
 /// @title DeRafl
@@ -25,6 +25,8 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard {
     // CONSTANTS
     /// @dev ERC721 interface
     bytes4 public constant INTERFACE_ID_ERC721 = 0x80ac58cd;
+    /// @dev ERC2981 interface
+    bytes4 public constant INTERFACE_ID_ERC2981 = 0x2a55205a;
     /// @dev Minimum days a raffle can be active
     uint256 constant MIN_DAYS = 1;
     /// @dev Maximum days a raffle can be active
@@ -33,6 +35,8 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard {
     uint256 constant MIN_ETH = 0.1 ether;
     /// @dev Maximum amount of Eth
     uint256 constant MAX_ETH = 1000 ether;
+    /// @dev Maximum royalty fee percentage (10%)
+    uint256 constant FEE_DENOMINATOR = 10000;
     /// @dev Maximum royalty fee percentage (10%)
     uint256 constant MAX_ROYALTY_FEE_PERCENTAGE = 1000;
     /// @dev DeRafl protocol fee (5%)
@@ -210,7 +214,7 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard {
         raffle.expiryTimestamp = block.timestamp + (daysActive * 1 days);
 
         // set royalty info at creation to avoid unexpected changes in royalties when raffle is closed
-        (address royaltyRecipient, uint256 royaltyPercentage) = getRoyaltyInfo(nftAddress);
+        (address royaltyRecipient, uint256 royaltyPercentage) = getRoyaltyInfo(nftAddress, tokenId);
         raffle.royaltyPercentage = royaltyPercentage;
         raffle.royaltyRecipient = royaltyRecipient;
 
@@ -315,8 +319,8 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard {
 
         // allocate and send the Eth
         uint256 ethRaised = raffle.ticketsSold * TICKET_PRICE;
-        uint256 protocolEth = (ethRaised * DERAFL_FEE_PERCENTAGE / 10000) + DERAFL_CHAINLINK_FEE;
-        uint256 royaltyEth = raffle.royaltyPercentage == 0 ? 0 : (ethRaised * raffle.royaltyPercentage) / 10000;
+        uint256 protocolEth = (ethRaised * DERAFL_FEE_PERCENTAGE / FEE_DENOMINATOR) + DERAFL_CHAINLINK_FEE;
+        uint256 royaltyEth = raffle.royaltyPercentage == 0 ? 0 : (ethRaised * raffle.royaltyPercentage) / FEE_DENOMINATOR;
         uint256 ownerEth = ethRaised - protocolEth - royaltyEth;
 
         (bool feeCallSuccess,) = deraflFeeCollector.call{value: protocolEth}("");
@@ -370,16 +374,29 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard {
         nftContract.safeTransferFrom(address(this), raffle.raffleOwner, raffle.tokenId);
     }
 
-    /// @dev Gets the royalty fee percentage of an nft. Returns a maximum of 10%
+    /// @notice Gets the royalty fee percentage of an nft. Returns a maximum of 10%
+    /// @dev checks for erc2981 as a priority for royalties, followed by looksrare royaltyFeeRegistry
+    /// @dev maximum 10% royalties
     /// @param nftAddress The address of the token being queried
-    function getRoyaltyInfo(address nftAddress) public view returns(address, uint256) {
-        try royaltyFeeRegistry.royaltyFeeInfoCollection(nftAddress) returns (address, address feeReceiver, uint256 royaltyFee) {
-            if (feeReceiver == address(0) || royaltyFee == 0) return(address(0), 0);
-            royaltyFee = royaltyFee > MAX_ROYALTY_FEE_PERCENTAGE ? MAX_ROYALTY_FEE_PERCENTAGE : royaltyFee;
-            return(feeReceiver, royaltyFee);
-        } catch {
-            return (address(0), 0);
+    function getRoyaltyInfo(address nftAddress, uint256 tokenId) public view returns(address feeReceiver, uint256 royaltyFee) {
+        (bool isErc2981) = IERC165(nftAddress).supportsInterface(INTERFACE_ID_ERC2981);
+        if (isErc2981) {
+            (bool status, bytes memory data) = nftAddress.staticcall(
+                abi.encodeWithSelector(IERC2981.royaltyInfo.selector, tokenId, FEE_DENOMINATOR)
+            );
+            if (status) {
+                (feeReceiver, royaltyFee) = abi.decode(data, (address, uint256));
+            }
+        } else {
+            try royaltyFeeRegistry.royaltyFeeInfoCollection(nftAddress) returns (address, address _feeReceiver, uint256 _royaltyFee) {
+                feeReceiver = _feeReceiver;
+                royaltyFee = _royaltyFee;
+            } catch {
+                return (address(0), 0);
+            }
         }
+        royaltyFee = royaltyFee > MAX_ROYALTY_FEE_PERCENTAGE ? MAX_ROYALTY_FEE_PERCENTAGE : royaltyFee;
+        return(feeReceiver, royaltyFee);
     }
 
     /// @dev Requests a random number from chainlink VRF
