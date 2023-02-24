@@ -107,15 +107,15 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
 
     /// @dev Ticket Owner represents a participants total input in a raffle (sum of all ticket batches)
     struct TicketOwner {
-        uint256 ticketsOwned;
+        uint128 ticketsOwned;
         bool isRefunded;
     }
 
     /// @dev TicketBatch represents a batch of tickets purchased for a raffle
     struct TicketBatch {
         address owner;
-        uint256 startTicket;
-        uint256 endTicket;
+        uint96 startTicket;
+        uint96 endTicket;
     }
 
     struct Raffle {
@@ -150,7 +150,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @dev address to collect protocol fee
     address payable deraflFeeCollector;
     /// @dev indicates if a raffle can be created
-    bool createEnabled = true;
+    bool createEnabled = false;
     
     constructor(
         uint64 _subscriptionId,
@@ -260,14 +260,14 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
 
         // increment the total tickets bought for this raffle by this address
         TicketOwner storage ticketData = ticketOwners[raffleId][msg.sender];
-        ticketData.ticketsOwned += ticketsToPurchase;
+        ticketData.ticketsOwned += uint128(ticketsToPurchase);
 
         uint256 batchId = raffle.batchIndex;
         // create a new batch purchase
         TicketBatch storage batch = ticketBatches[raffleId][batchId];
         batch.owner = msg.sender;
-        batch.startTicket = raffle.ticketsSold + 1;
-        batch.endTicket = raffle.ticketsSold + ticketsToPurchase;
+        batch.startTicket = uint96(raffle.ticketsSold + 1);
+        batch.endTicket = uint96(raffle.ticketsSold + ticketsToPurchase);
 
         raffle.ticketsSold += ticketsToPurchase;
         raffle.batchIndex ++;

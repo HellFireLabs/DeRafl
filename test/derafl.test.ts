@@ -77,10 +77,12 @@ describe("DeRafl", function () {
     await nftMockAsCreator.setApprovalForAll(derafl.address, true)
     const deraflAsRaffleCreator = await derafl.connect(raffleCreator);
     await derafl.toggleCreateEnabled()
+    const blockTime = await time.latest()
+    const expiry = blockTime + (60 * 60 * 24 * 1)
     await deraflAsRaffleCreator.createRaffle(
       nftMock.address,
       "1",
-      1,
+      expiry,
       parseEther("10")
     );
 
@@ -306,10 +308,12 @@ describe("DeRafl", function () {
         await nftMock.safeMint(raffleCreator.address);
         const nftMockAsRaffleCreator = await nftMock.connect(raffleCreator);
         await nftMockAsRaffleCreator.approve(derafl.address, tokenId);
+        const blockTime = await time.latest()
+        const expiry = blockTime + (60 * 60 * 24 * 1)    
         await deraflAsRaffleCreator.createRaffle(
           nftMock.address,
           tokenId,
-          "1",
+          expiry,
           parseEther("1")
         );
 
