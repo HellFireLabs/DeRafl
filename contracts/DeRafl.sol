@@ -25,10 +25,8 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     bytes4 public constant INTERFACE_ID_ERC721 = 0x80ac58cd;
     /// @dev ERC2981 interface
     bytes4 public constant INTERFACE_ID_ERC2981 = 0x2a55205a;
-    /// @dev Minimum days a raffle can be active
-    uint256 constant MIN_DAYS = 1;
-    /// @dev Maximum days a raffle can be active
-    uint256 constant MAX_DAYS = 30;
+    /// @dev Maximum seconds a raffle can be active
+    uint256 constant MAX_RAFFLE_DURATION_SECONDS = 2592000; //30 days
     /// @dev Minimum amount of Eth
     uint256 constant MIN_ETH = 0.1 ether;
     /// @dev Maximum royalty fee percentage (10%)
@@ -203,14 +201,15 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @dev Creates a new raffle and adds it to the raffles mapping 
     /// @param nftAddress The address of the NFT being raffled
     /// @param tokenId The token id of the NFT being raffled
-    /// @param daysActive How many days until the raffle expires
+    /// @param expiryTimestamp How many days until the raffle expires
     /// @param ethInput The maximum amount of Eth to be raised for the raffle
-    function createRaffle(address nftAddress, uint256 tokenId, uint256 daysActive, uint256 ethInput) external {
+    function createRaffle(address nftAddress, uint256 tokenId, uint256 expiryTimestamp, uint256 ethInput) external {
         require(createEnabled, "Create is not enabled");
+        uint256 duration = expiryTimestamp - block.timestamp;
+        require(expiryTimestamp > block.timestamp && duration <= MAX_RAFFLE_DURATION_SECONDS, "Invalid expiry timestamp");
         require((IERC165(nftAddress).supportsInterface(INTERFACE_ID_ERC721)), "NFTAddress must be ERC721");
         require(ethInput % TICKET_PRICE == 0, "Input must be divisible by ticket price");
         require(ethInput >= MIN_ETH, "Invalid eth");
-        require(daysActive >= MIN_DAYS && daysActive <= MAX_DAYS, "Invalid days");
         IERC721 nftContract = IERC721(nftAddress);
         Raffle storage raffle = raffles[raffleNonce];
         raffle.raffleState = RaffleState.ACTIVE;
@@ -220,7 +219,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
         raffle.nftAddress = nftAddress;
         raffle.tokenId = tokenId;
         raffle.ticketsAvailable = ethInput / TICKET_PRICE;
-        raffle.expiryTimestamp = block.timestamp + (daysActive * 1 days);
+        raffle.expiryTimestamp = expiryTimestamp;
 
         // set royalty info at creation to avoid unexpected changes in royalties when raffle is closed
         (address royaltyRecipient, uint256 royaltyPercentage) = getRoyaltyInfo(nftAddress, tokenId);
