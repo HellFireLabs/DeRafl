@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -20,7 +18,7 @@ import "./interface/IRoyaltyFeeRegistry.sol";
 /// LooksRare royaltyFeeRegistry is used to determine royalty rates for collections.
 /// Collection royalties are honoured with a max payout of 10%
 
-contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, Ownable {
+contract DeRafl is VRFConsumerBaseV2, Ownable {
 
     // CONSTANTS
     /// @dev ERC721 interface
@@ -434,9 +432,5 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, Ownable {
         raffle.winningTicket = winningTicket;
         raffle.raffleState = RaffleState.DRAWN;
         emit RaffleDrawn(raffleId, winningTicket);
-    }
-
-    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
-        return IERC721Receiver.onERC721Received.selector;
     }
 }
