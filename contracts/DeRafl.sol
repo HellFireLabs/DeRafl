@@ -31,8 +31,6 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     uint256 constant MAX_DAYS = 30;
     /// @dev Minimum amount of Eth
     uint256 constant MIN_ETH = 0.1 ether;
-    /// @dev Maximum amount of Eth
-    uint256 constant MAX_ETH = 1000 ether;
     /// @dev Maximum royalty fee percentage (10%)
     uint256 constant FEE_DENOMINATOR = 10000;
     /// @dev Maximum royalty fee percentage (10%)
@@ -211,7 +209,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
         require(createEnabled, "Create is not enabled");
         require((IERC165(nftAddress).supportsInterface(INTERFACE_ID_ERC721)), "NFTAddress must be ERC721");
         require(ethInput % TICKET_PRICE == 0, "Input must be divisible by ticket price");
-        require(ethInput >= MIN_ETH && ethInput <= MAX_ETH, "Invalid eth");
+        require(ethInput >= MIN_ETH, "Invalid eth");
         require(daysActive >= MIN_DAYS && daysActive <= MAX_DAYS, "Invalid days");
         IERC721 nftContract = IERC721(nftAddress);
         Raffle storage raffle = raffles[raffleNonce];
