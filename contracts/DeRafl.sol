@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -21,7 +20,7 @@ import "./interface/IRoyaltyFeeRegistry.sol";
 /// LooksRare royaltyFeeRegistry is used to determine royalty rates for collections.
 /// Collection royalties are honoured with a max payout of 10%
 
-contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard, Ownable {
+contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, Ownable {
 
     // CONSTANTS
     /// @dev ERC721 interface
@@ -246,7 +245,7 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard, Ownable 
     /// Emit TicketsPurchased event.
     /// @param raffleId The address of the NFT being raffled
     /// @param ticketAmount The amount of tickets to purchase
-    function buyTickets(uint256 raffleId, uint256 ticketAmount) external payable nonReentrant {
+    function buyTickets(uint256 raffleId, uint256 ticketAmount) external payable {
         require(ticketAmount > 0, "Cannot purchase 0 tickets");
         Raffle storage raffle = raffles[raffleId];
         require(msg.sender != raffle.raffleOwner, "Owner cannot purchase tickets");
