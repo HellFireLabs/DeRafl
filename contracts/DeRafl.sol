@@ -119,20 +119,20 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     }
 
     struct Raffle {
-        uint256 raffleId;
+        uint64 raffleId;
         RaffleState raffleState;
         address payable raffleOwner;
         address nftAddress;
+        uint64 expiryTimestamp;
+        address royaltyRecipient;
+        address winner;
+        uint256 chainlinkRequestId;
+        uint256 winningTicket;
+        uint256 royaltyPercentage;
         uint256 tokenId;
         uint256 ticketsAvailable;
         uint256 ticketsSold;
         uint256 batchIndex;
-        uint256 expiryTimestamp;
-        uint256 chainlinkRequestId;
-        uint256 winningTicket;
-        address winner;
-        uint256 royaltyPercentage;
-        address royaltyRecipient;
     }
 
     /// @dev LooksRare royaltyFeeRegistry
@@ -146,7 +146,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @dev maps raffleId to a chainlink VRF request
     mapping(uint256 => uint256) chainlinkRequestIdMap;
     /// @dev incremented raffleId
-    uint256 raffleNonce = 1;
+    uint64 raffleNonce = 1;
     /// @dev address to collect protocol fee
     address payable deraflFeeCollector;
     /// @dev indicates if a raffle can be created
@@ -203,7 +203,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param tokenId The token id of the NFT being raffled
     /// @param expiryTimestamp How many days until the raffle expires
     /// @param ethInput The maximum amount of Eth to be raised for the raffle
-    function createRaffle(address nftAddress, uint256 tokenId, uint256 expiryTimestamp, uint256 ethInput) external {
+    function createRaffle(address nftAddress, uint256 tokenId, uint64 expiryTimestamp, uint256 ethInput) external {
         require(createEnabled, "Create is not enabled");
         uint256 duration = expiryTimestamp - block.timestamp;
         require(expiryTimestamp > block.timestamp && duration <= MAX_RAFFLE_DURATION_SECONDS, "Invalid expiry timestamp");
