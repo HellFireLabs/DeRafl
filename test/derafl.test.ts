@@ -76,6 +76,7 @@ describe("DeRafl", function () {
     const nftMockAsCreator = await nftMock.connect(raffleCreator);
     await nftMockAsCreator.setApprovalForAll(derafl.address, true)
     const deraflAsRaffleCreator = await derafl.connect(raffleCreator);
+    await derafl.toggleCreateEnabled()
     await deraflAsRaffleCreator.createRaffle(
       nftMock.address,
       "1",

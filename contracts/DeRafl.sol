@@ -8,6 +8,7 @@ import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interface/IRoyaltyFeeRegistry.sol";
 
 /// @title DeRafl
@@ -20,7 +21,7 @@ import "./interface/IRoyaltyFeeRegistry.sol";
 /// LooksRare royaltyFeeRegistry is used to determine royalty rates for collections.
 /// Collection royalties are honoured with a max payout of 10%
 
-contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard {
+contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard, Ownable {
 
     // CONSTANTS
     /// @dev ERC721 interface
@@ -97,6 +98,10 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard {
     /// @param ethAmount The ethereum amount being refunded in wei
     event TicketRefunded(uint256 raffleId, address refundee, uint256 ethAmount);
 
+    /// @dev Emitted when create raffle is toggled
+    /// @param enabled next state of createEnabled
+    event CreateEnabled(bool enabled);
+
     enum RaffleState {
         NONE,
         ACTIVE,
@@ -151,6 +156,8 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard {
     uint256 raffleNonce = 1;
     /// @dev address to collect protocol fee
     address payable deraflFeeCollector;
+    /// @dev indicates if a raffle can be created
+    bool createEnabled = true;
     
     constructor(
         uint64 _subscriptionId,
@@ -191,6 +198,12 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard {
         return ticketBatches[raffleId][batchId];
     }
 
+    /// @notice toggles the ability for users to create raffles
+    function toggleCreateEnabled() external onlyOwner {
+        createEnabled = !createEnabled;
+        emit CreateEnabled(createEnabled);
+    }
+
     /// @notice DeRafl Creates a new raffle
     /// @dev Creates a new raffle and adds it to the raffles mapping 
     /// @param nftAddress The address of the NFT being raffled
@@ -198,6 +211,7 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, ReentrancyGuard {
     /// @param daysActive How many days until the raffle expires
     /// @param ethInput The maximum amount of Eth to be raised for the raffle
     function createRaffle(address nftAddress, uint256 tokenId, uint256 daysActive, uint256 ethInput) external {
+        require(createEnabled, "Create is not enabled");
         require((IERC165(nftAddress).supportsInterface(INTERFACE_ID_ERC721)), "NFTAddress must be ERC721");
         require(ethInput % TICKET_PRICE == 0, "Input must be divisible by ticket price");
         require(ethInput >= MIN_ETH && ethInput <= MAX_ETH, "Invalid eth");
