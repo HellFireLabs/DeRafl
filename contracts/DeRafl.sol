@@ -55,27 +55,27 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param tokenId The tokenId of the NFT being raffled
     /// @param tickets Maximum amount of tickets to be sold
     /// @param expires The timestamp when the raffle expires
-    event RaffleOpened(uint256 raffleId, address nftAddress, uint256 tokenId, uint256 tickets, uint256 expires);
+    event RaffleOpened(uint256 indexed raffleId, address indexed nftAddress, uint256 tokenId, uint256 tickets, uint256 expires);
 
     /// @dev Emitted when a raffle is closed
     /// @param raffleId The id of the raffle being closed
-    event RaffleClosed(uint256 raffleId);
+    event RaffleClosed(uint256 indexed raffleId);
 
     /// @dev Emitted when a raffle is drawn and winning ticket determined
     /// @param raffleId The id of the raffle being drawn
     /// @param winningTicket The winning ticket of the raffle being drawn
-    event RaffleDrawn(uint256 raffleId, uint256 winningTicket);
+    event RaffleDrawn(uint256 indexed raffleId, uint256 winningTicket);
 
     /// @dev Emitted when a raffle is released
     /// @param raffleId The id of the raffle being released
     /// @param winner The address of the winning ticket holder
     /// @param royaltiesPaid Collection royalties paid in wei
     /// @param ethPaid Ethereum paid to the raffle owner in wei
-    event RaffleReleased(uint256 raffleId, address winner, uint256 royaltiesPaid, uint256 ethPaid);
+    event RaffleReleased(uint256 indexed raffleId, address indexed winner, uint256 royaltiesPaid, uint256 ethPaid);
 
     /// @dev Emitted when a raffle has been changed to a refunded state
     /// @param raffleId The id of the raffle being refunded
-    event RaffleRefunded(uint256 raffleId);
+    event RaffleRefunded(uint256 indexed raffleId);
 
     /// @dev Emitted when tickets are purchased
     /// @param raffleId The raffle id of the tickets being purchased
@@ -83,13 +83,13 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param purchaser The address of the account making the purchase
     /// @param ticketFrom The first ticket of the ticket batch
     /// @param ticketAmount The amount of tickets being purchased
-    event TicketPurchased(uint256 raffleId, uint256 batchId, address purchaser, uint256 ticketFrom, uint256 ticketAmount);
+    event TicketPurchased(uint256 indexed raffleId, uint256 batchId, address indexed purchaser, uint256 ticketFrom, uint256 ticketAmount);
 
     /// @dev Emitted when a refund has been placed
     /// @param raffleId The raffle id of the raffle being refunded
     /// @param refundee The account being issued a refund
     /// @param ethAmount The ethereum amount being refunded in wei
-    event TicketRefunded(uint256 raffleId, address refundee, uint256 ethAmount);
+    event TicketRefunded(uint256 indexed raffleId, address indexed refundee, uint256 ethAmount);
 
     /// @dev Emitted when create raffle is toggled
     /// @param enabled next state of createEnabled
