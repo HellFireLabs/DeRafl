@@ -216,10 +216,10 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, Ownable {
         require(ethInput >= MIN_ETH && ethInput <= MAX_ETH, "Invalid eth");
         require(daysActive >= MIN_DAYS && daysActive <= MAX_DAYS, "Invalid days");
         IERC721 nftContract = IERC721(nftAddress);
-        nftContract.safeTransferFrom(msg.sender, address(this), tokenId);
         Raffle storage raffle = raffles[raffleNonce];
         raffle.raffleState = RaffleState.ACTIVE;
         raffle.raffleId = raffleNonce;
+        raffleNonce ++;
         raffle.raffleOwner = payable(msg.sender);
         raffle.nftAddress = nftAddress;
         raffle.tokenId = tokenId;
@@ -230,8 +230,7 @@ contract DeRafl is IERC721Receiver, VRFConsumerBaseV2, Ownable {
         (address royaltyRecipient, uint256 royaltyPercentage) = getRoyaltyInfo(nftAddress, tokenId);
         raffle.royaltyPercentage = royaltyPercentage;
         raffle.royaltyRecipient = royaltyRecipient;
-
-        raffleNonce ++;
+        nftContract.transferFrom(msg.sender, address(this), tokenId);
         emit RaffleOpened(raffle.raffleId, nftAddress, tokenId, raffle.ticketsAvailable, raffle.expiryTimestamp);
     }
 
