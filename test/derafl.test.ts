@@ -134,7 +134,7 @@ describe("DeRafl", function () {
           deraflAsAddress1.buyTickets("1", "1000", {
             value: parseEther("0.001").mul("999"),
           })
-        ).to.be.revertedWith("Insufficient msg.value");
+        ).to.be.revertedWithCustomError(derafl, "MsgValueInvalid");
       });
 
       it("Buyer cannot buy 0 tickets", async function () {
@@ -142,7 +142,7 @@ describe("DeRafl", function () {
           deraflAsAddress1.buyTickets("1", "0", {
             value: parseEther("0.001").mul("999"),
           })
-        ).to.be.revertedWith("Cannot purchase 0 tickets");
+        ).to.be.revertedWithCustomError(derafl, "TicketAmountInvalid");
       });
 
       it("Cannot purchase on invalid raffle id", async function () {
@@ -150,7 +150,7 @@ describe("DeRafl", function () {
           deraflAsAddress1.buyTickets("2", "1000", {
             value: parseEther("0.001").mul("1000"),
           })
-        ).to.be.revertedWith("Invalid Raffle State");
+        ).to.be.revertedWithCustomError(derafl, "InvalidRaffleState");
       });
 
       it("Buyer can buy tickets", async function () {
@@ -201,30 +201,49 @@ describe("DeRafl", function () {
         expect(batchInfo.endTicket).to.equal('9000')
       });
 
-      it("Sells remaining tickets if desired ticket amount is too high, and refunds remaining eth", async function () {
+      it ("Reverts if ticket amount is higher than tickets remaining", async function () {
         // 1000 tickets remain, try to buy 2000
-        const buyerEthBalanceBefore = await ethers.provider.getBalance(
-          address3.address
-        );
-        const tx = await deraflAsAddress3.buyTickets("1", "2000", {
-          value: parseEther("0.001").mul("2000"),
-        });
+        await expect(
+          deraflAsAddress3.buyTickets("1", "2000", {
+            value: parseEther("0.001").mul("2000"),
+          })
+        ).to.be.revertedWithCustomError(derafl, "TicketAmountInvalid");
+      })
 
-        const { gasUsed, effectiveGasPrice } = await tx.wait();
-        const buyerEthBalanceAfter = await ethers.provider.getBalance(
-          address3.address
-        );
-        const expectedEthBalanceAfter = buyerEthBalanceBefore
-          .sub(parseEther("0.001").mul("1000"))
-          .sub(gasUsed.mul(effectiveGasPrice));
-        expect(expectedEthBalanceAfter).to.equal(buyerEthBalanceAfter);
+      it ("User can purchase remaining tickets", async function () {
+        // 1000 tickets remain, try to buy 2000
+        await expect(
+          deraflAsAddress3.buyTickets("1", "1000", {
+            value: parseEther("0.001").mul("1000"),
+          })
+        ).to.not.be.reverted
+      })
 
-        console.log("GAS USED: ", gasUsed.toBigInt())
 
-        const userInfo = await derafl.getUserInfo("1", address3.address);
-        expect(userInfo.ticketsOwned).to.equal("1000");
-        expect(userInfo.isRefunded).to.be.false;
-      });
+      // it("Sells remaining tickets if desired ticket amount is too high, and refunds remaining eth", async function () {
+      //   // 1000 tickets remain, try to buy 2000
+      //   const buyerEthBalanceBefore = await ethers.provider.getBalance(
+      //     address3.address
+      //   );
+      //   const tx = await deraflAsAddress3.buyTickets("1", "2000", {
+      //     value: parseEther("0.001").mul("2000"),
+      //   });
+
+      //   const { gasUsed, effectiveGasPrice } = await tx.wait();
+      //   const buyerEthBalanceAfter = await ethers.provider.getBalance(
+      //     address3.address
+      //   );
+      //   const expectedEthBalanceAfter = buyerEthBalanceBefore
+      //     .sub(parseEther("0.001").mul("1000"))
+      //     .sub(gasUsed.mul(effectiveGasPrice));
+      //   expect(expectedEthBalanceAfter).to.equal(buyerEthBalanceAfter);
+
+      //   console.log("GAS USED: ", gasUsed.toBigInt())
+
+      //   const userInfo = await derafl.getUserInfo("1", address3.address);
+      //   expect(userInfo.ticketsOwned).to.equal("1000");
+      //   expect(userInfo.isRefunded).to.be.false;
+      // });
 
       it("Shows correct raffle state for sold out raffle", async function () {
         const raffleInfo = await derafl.getRaffle("1");
@@ -237,17 +256,17 @@ describe("DeRafl", function () {
           deraflAsAddress3.buyTickets("1", "1", {
             value: parseEther("0.001").mul("1"),
           })
-        ).to.be.revertedWith("Invalid Raffle State");
+        ).to.be.revertedWithCustomError(derafl, "TicketAmountInvalid");
       });
 
       it("A raffle can be closed when sold out", async function () {
-        const subDeets = await hardhatVrfCoordinatorV2Mock.getSubscription("1");
         await expect(deraflAsRaffleCreator.drawRaffle("1")).to.not.be.reverted;
       });
 
       it("Reverts when trying to close a closed raffle", async function () {
-        await expect(deraflAsRaffleCreator.drawRaffle("1")).to.be.revertedWith(
-          "Raffle is already closed"
+        await expect(deraflAsRaffleCreator.drawRaffle("1")).to.be.revertedWithCustomError(
+          derafl,
+          "InvalidRaffleState"
         );
       });
 
@@ -330,8 +349,9 @@ describe("DeRafl", function () {
       });
 
       it("Active raffle cannot be refunded < 2 days before expiry", async function () {
-        await expect(deraflAsRaffleCreator.refundRaffle(raffleId)).to.be.revertedWith(
-          "Raffle must be closed for at least 2 days before being refunded"
+        await expect(deraflAsRaffleCreator.refundRaffle(raffleId)).to.be.revertedWithCustomError(
+          derafl,
+          "TimeSinceExpiryInsufficientForRefund"
         );
       })
 
@@ -342,8 +362,9 @@ describe("DeRafl", function () {
         const oneSecondAfterRefundAvailable = oneSecondBeforeRefundAvailable.add(2)
         time.setNextBlockTimestamp(oneSecondBeforeRefundAvailable)
         await network.provider.send("evm_mine")
-        await expect(deraflAsRaffleCreator.refundRaffle(raffleId)).to.be.revertedWith(
-          "Raffle must be closed for at least 2 days before being refunded"
+        await expect(deraflAsRaffleCreator.refundRaffle(raffleId)).to.be.revertedWithCustomError(
+          derafl,
+          "TimeSinceExpiryInsufficientForRefund"
         );
         time.setNextBlockTimestamp(oneSecondAfterRefundAvailable)
         await network.provider.send("evm_mine")
@@ -374,14 +395,16 @@ describe("DeRafl", function () {
       });
 
       it("Reverts when trying to refund again", async function () {
-        await expect(derafl.refundRaffle(raffleId)).to.be.revertedWith(
-          "Invalid raffle state"
+        await expect(derafl.refundRaffle(raffleId)).to.be.revertedWithCustomError(
+          derafl,
+          "InvalidRaffleState"
         );
       });
 
       it("Reverts if attempting to refund again", async function () {
-        await expect(deraflAsAddress1.refundTickets(raffleId)).to.be.revertedWith(
-          "Tickets are already refunded"
+        await expect(deraflAsAddress1.refundTickets(raffleId)).to.be.revertedWithCustomError(
+          derafl,
+          "TicketsAlreadyRefunded"
         );
       });
 
