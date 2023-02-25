@@ -32,7 +32,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @dev Maximum royalty fee percentage (10%)
     uint256 constant FEE_DENOMINATOR = 10000;
     /// @dev Maximum royalty fee percentage (10%)
-    uint256 constant MAX_ROYALTY_FEE_PERCENTAGE = 1000;
+    uint64 constant MAX_ROYALTY_FEE_PERCENTAGE = 1000;
     /// @dev DeRafl protocol fee (5%)
     uint256 constant DERAFL_FEE_PERCENTAGE = 500;
     /// @dev DeRafl Chainlink Fee
@@ -128,8 +128,8 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
         address winner;                 //20
         uint96 batchIndex;              //12
         uint256 chainlinkRequestId;
-        uint256 royaltyPercentage;
         uint256 tokenId;
+        uint64 royaltyPercentage;
         uint64 raffleId;
         RaffleState raffleState;
         uint64 expiryTimestamp;
@@ -222,7 +222,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
         raffle.expiryTimestamp = expiryTimestamp;
 
         // set royalty info at creation to avoid unexpected changes in royalties when raffle is closed
-        (address royaltyRecipient, uint256 royaltyPercentage) = getRoyaltyInfo(nftAddress, tokenId);
+        (address royaltyRecipient, uint64 royaltyPercentage) = getRoyaltyInfo(nftAddress, tokenId);
         raffle.royaltyPercentage = royaltyPercentage;
         raffle.royaltyRecipient = royaltyRecipient;
         nftContract.transferFrom(msg.sender, address(this), tokenId);
@@ -386,19 +386,19 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @dev checks for erc2981 as a priority for royalties, followed by looksrare royaltyFeeRegistry
     /// @dev maximum 10% royalties
     /// @param nftAddress The address of the token being queried
-    function getRoyaltyInfo(address nftAddress, uint256 tokenId) public view returns(address feeReceiver, uint256 royaltyFee) {
+    function getRoyaltyInfo(address nftAddress, uint256 tokenId) public view returns(address feeReceiver, uint64 royaltyFee) {
         (bool isErc2981) = IERC165(nftAddress).supportsInterface(INTERFACE_ID_ERC2981);
         if (isErc2981) {
             (bool status, bytes memory data) = nftAddress.staticcall(
                 abi.encodeWithSelector(IERC2981.royaltyInfo.selector, tokenId, FEE_DENOMINATOR)
             );
             if (status) {
-                (feeReceiver, royaltyFee) = abi.decode(data, (address, uint256));
+                (feeReceiver, royaltyFee) = abi.decode(data, (address, uint64));
             }
         } else {
             try royaltyFeeRegistry.royaltyFeeInfoCollection(nftAddress) returns (address, address _feeReceiver, uint256 _royaltyFee) {
                 feeReceiver = _feeReceiver;
-                royaltyFee = _royaltyFee;
+                royaltyFee = uint64(_royaltyFee);
             } catch {
                 return (address(0), 0);
             }
