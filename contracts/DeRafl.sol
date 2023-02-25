@@ -223,7 +223,6 @@ error RaffleOwnerCannotPurchaseTickets();
         if (!createEnabled) revert CreateNotEnabled();
         uint256 duration = expiryTimestamp - block.timestamp;
         if (duration > MAX_RAFFLE_DURATION_SECONDS) revert InvalidExpiryTimestamp();
-        require((IERC165(nftAddress).supportsInterface(INTERFACE_ID_ERC721)), "NFTAddress must be ERC721");
         if (ethInput % TICKET_PRICE != 0) revert EthInputInvalid();
         if (ethInput < MIN_ETH) revert EthInputTooSmall();
 
