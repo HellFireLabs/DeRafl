@@ -38,7 +38,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @dev DeRafl Chainlink Fee
     uint256 constant DERAFL_CHAINLINK_FEE = 0.005 ether;
     /// @dev Price per ticket
-    uint256 constant TICKET_PRICE = 0.001 ether;
+    uint96 constant TICKET_PRICE = 0.001 ether;
 
     // CHAINLINK
     uint64 subscriptionId;
@@ -55,27 +55,27 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param tokenId The tokenId of the NFT being raffled
     /// @param tickets Maximum amount of tickets to be sold
     /// @param expires The timestamp when the raffle expires
-    event RaffleOpened(uint256 indexed raffleId, address indexed nftAddress, uint256 tokenId, uint256 tickets, uint256 expires);
+    event RaffleOpened(uint64 indexed raffleId, address indexed nftAddress, uint256 tokenId, uint96 tickets, uint64 expires);
 
     /// @dev Emitted when a raffle is closed
     /// @param raffleId The id of the raffle being closed
-    event RaffleClosed(uint256 indexed raffleId);
+    event RaffleClosed(uint64 indexed raffleId);
 
     /// @dev Emitted when a raffle is drawn and winning ticket determined
     /// @param raffleId The id of the raffle being drawn
     /// @param winningTicket The winning ticket of the raffle being drawn
-    event RaffleDrawn(uint256 indexed raffleId, uint256 winningTicket);
+    event RaffleDrawn(uint64 indexed raffleId, uint96 winningTicket);
 
     /// @dev Emitted when a raffle is released
     /// @param raffleId The id of the raffle being released
     /// @param winner The address of the winning ticket holder
     /// @param royaltiesPaid Collection royalties paid in wei
     /// @param ethPaid Ethereum paid to the raffle owner in wei
-    event RaffleReleased(uint256 indexed raffleId, address indexed winner, uint256 royaltiesPaid, uint256 ethPaid);
+    event RaffleReleased(uint64 indexed raffleId, address indexed winner, uint256 royaltiesPaid, uint256 ethPaid);
 
     /// @dev Emitted when a raffle has been changed to a refunded state
     /// @param raffleId The id of the raffle being refunded
-    event RaffleRefunded(uint256 indexed raffleId);
+    event RaffleRefunded(uint64 indexed raffleId);
 
     /// @dev Emitted when tickets are purchased
     /// @param raffleId The raffle id of the tickets being purchased
@@ -83,13 +83,13 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param purchaser The address of the account making the purchase
     /// @param ticketFrom The first ticket of the ticket batch
     /// @param ticketAmount The amount of tickets being purchased
-    event TicketPurchased(uint256 indexed raffleId, uint256 batchId, address indexed purchaser, uint256 ticketFrom, uint256 ticketAmount);
+    event TicketPurchased(uint64 indexed raffleId, uint96 batchId, address indexed purchaser, uint96 ticketFrom, uint96 ticketAmount);
 
     /// @dev Emitted when a refund has been placed
     /// @param raffleId The raffle id of the raffle being refunded
     /// @param refundee The account being issued a refund
     /// @param ethAmount The ethereum amount being refunded in wei
-    event TicketRefunded(uint256 indexed raffleId, address indexed refundee, uint256 ethAmount);
+    event TicketRefunded(uint64 indexed raffleId, address indexed refundee, uint256 ethAmount);
 
     /// @dev Emitted when create raffle is toggled
     /// @param enabled next state of createEnabled
@@ -119,32 +119,32 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     }
 
     struct Raffle {
-        uint64 raffleId;
-        RaffleState raffleState;
-        address payable raffleOwner;
-        address nftAddress;
-        uint64 expiryTimestamp;
-        address royaltyRecipient;
-        address winner;
+        address royaltyRecipient;       //20
+        uint96 winningTicket;           //12
+        address nftAddress;             //20
+        uint96 ticketsAvailable;        //12
+        address payable raffleOwner;    //20
+        uint96 ticketsSold;             //12
+        address winner;                 //20
+        uint96 batchIndex;              //12
         uint256 chainlinkRequestId;
-        uint256 winningTicket;
         uint256 royaltyPercentage;
         uint256 tokenId;
-        uint256 ticketsAvailable;
-        uint256 ticketsSold;
-        uint256 batchIndex;
+        uint64 raffleId;
+        RaffleState raffleState;
+        uint64 expiryTimestamp;
     }
 
     /// @dev LooksRare royaltyFeeRegistry
     IRoyaltyFeeRegistry royaltyFeeRegistry;
     /// @dev mapping of raffleId => raffle
-    mapping(uint256 => Raffle) raffles;
+    mapping(uint64 => Raffle) raffles;
     /// @dev maps a participants TOTAL tickets bought for a raffle
-    mapping(uint256 => mapping(address => TicketOwner)) ticketOwners;
+    mapping(uint64 => mapping(address => TicketOwner)) ticketOwners;
     /// @dev maps ticketBatches purchased for a raffle
-    mapping(uint256 => mapping(uint256 => TicketBatch)) ticketBatches;
+    mapping(uint64 => mapping(uint96 => TicketBatch)) ticketBatches;
     /// @dev maps raffleId to a chainlink VRF request
-    mapping(uint256 => uint256) chainlinkRequestIdMap;
+    mapping(uint256 => uint64) chainlinkRequestIdMap;
     /// @dev incremented raffleId
     uint64 raffleNonce = 1;
     /// @dev address to collect protocol fee
@@ -168,7 +168,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @dev Returns the Raffle struct of the specified Id
     /// @param raffleId a parameter just like in doxygen (must be followed by parameter name)
     /// @return rafl the Raffle struct at the specified raffleId
-    function getRaffle(uint256 raffleId) external view returns (Raffle memory rafl){
+    function getRaffle(uint64 raffleId) external view returns (Raffle memory rafl){
         return raffles[raffleId];
     }
 
@@ -178,7 +178,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param raffleId The raffle Id of the raffle being queried
     /// @param ticketOwner The address of the participant being queried
     /// @return TicketOwner
-    function getUserInfo(uint256 raffleId, address ticketOwner) external view returns(TicketOwner memory) {
+    function getUserInfo(uint64 raffleId, address ticketOwner) external view returns(TicketOwner memory) {
         return ticketOwners[raffleId][ticketOwner];
     }
 
@@ -187,7 +187,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param raffleId The raffle Id of the TicketBatch being queried
     /// @param batchId The batchId for the TicketBatch being queried
     /// @return TicketBatch
-    function getBatchInfo(uint256 raffleId, uint256 batchId) external view returns(TicketBatch memory) {
+    function getBatchInfo(uint64 raffleId, uint96 batchId) external view returns(TicketBatch memory) {
         return ticketBatches[raffleId][batchId];
     }
 
@@ -203,7 +203,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param tokenId The token id of the NFT being raffled
     /// @param expiryTimestamp How many days until the raffle expires
     /// @param ethInput The maximum amount of Eth to be raised for the raffle
-    function createRaffle(address nftAddress, uint256 tokenId, uint64 expiryTimestamp, uint256 ethInput) external {
+    function createRaffle(address nftAddress, uint256 tokenId, uint64 expiryTimestamp, uint96 ethInput) external {
         require(createEnabled, "Create is not enabled");
         uint256 duration = expiryTimestamp - block.timestamp;
         require(expiryTimestamp > block.timestamp && duration <= MAX_RAFFLE_DURATION_SECONDS, "Invalid expiry timestamp");
@@ -239,43 +239,44 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// Emit TicketsPurchased event.
     /// @param raffleId The address of the NFT being raffled
     /// @param ticketAmount The amount of tickets to purchase
-    function buyTickets(uint256 raffleId, uint256 ticketAmount) external payable {
+    function buyTickets(uint64 raffleId, uint96 ticketAmount) external payable {
         require(ticketAmount > 0, "Cannot purchase 0 tickets");
         Raffle storage raffle = raffles[raffleId];
-        require(msg.sender != raffle.raffleOwner, "Owner cannot purchase tickets");
+        // require(msg.sender != raffle.raffleOwner, "Owner cannot purchase tickets");
         require(raffle.raffleState == RaffleState.ACTIVE, "Invalid Raffle State");
         require(raffle.expiryTimestamp > block.timestamp, "Raffle has expired");
         uint256 ticketsRemaining = raffle.ticketsAvailable - raffle.ticketsSold;
-        uint256 ticketsToPurchase = ticketsRemaining >= ticketAmount ? ticketAmount : ticketsRemaining;
+        require(ticketAmount <= ticketsRemaining, "");
+        // uint256 ticketsToPurchase = ticketsRemaining >= ticketAmount ? ticketAmount : ticketsRemaining;
 
-        uint256 ethAmount = ticketsToPurchase * TICKET_PRICE;
-        require(msg.value >= ethAmount, "Insufficient msg.value");
+        uint256 ethAmount = ticketAmount * TICKET_PRICE;
+        require(msg.value == ethAmount, "Insufficient msg.value");
 
         // refund any extra eth in the event that someone has over paid
         // or they are purchasing REMAINING tickets as their order could not be completely fulfilled
-        if (ethAmount < msg.value) {
-            uint256 amountOver = msg.value - ethAmount;
-            payable(msg.sender).transfer(amountOver);
-        }
+        // if (ethAmount < msg.value) {
+        //     uint256 amountOver = msg.value - ethAmount;
+        //     payable(msg.sender).transfer(amountOver);
+        // }
 
         // increment the total tickets bought for this raffle by this address
         TicketOwner storage ticketData = ticketOwners[raffleId][msg.sender];
-        ticketData.ticketsOwned += uint128(ticketsToPurchase);
+        ticketData.ticketsOwned += ticketAmount;
 
-        uint256 batchId = raffle.batchIndex;
+        uint96 batchId = raffle.batchIndex;
         // create a new batch purchase
         TicketBatch storage batch = ticketBatches[raffleId][batchId];
         batch.owner = msg.sender;
-        batch.startTicket = uint96(raffle.ticketsSold + 1);
-        batch.endTicket = uint96(raffle.ticketsSold + ticketsToPurchase);
+        batch.startTicket = raffle.ticketsSold + 1;
+        batch.endTicket = raffle.ticketsSold + ticketAmount;
 
-        raffle.ticketsSold += ticketsToPurchase;
+        raffle.ticketsSold += ticketAmount;
         raffle.batchIndex ++;
 
-        if (raffle.ticketsSold == raffle.ticketsAvailable) {
-            raffle.raffleState = RaffleState.CLOSED;
-        }
-        emit TicketPurchased(raffleId, batchId, msg.sender, batch.startTicket, ticketsToPurchase);
+        // if (raffle.ticketsSold == raffle.ticketsAvailable) {
+        //     raffle.raffleState = RaffleState.CLOSED;
+        // }
+        emit TicketPurchased(raffleId, batchId, msg.sender, batch.startTicket, ticketAmount);
     }
 
     /// @notice DeRafl starts the drawing process for a raffle
@@ -284,7 +285,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// Stores the chainlinkRequestId in chainlinkRequestIdMap against the raffleId.
     /// emits raffle closed event.
     /// @param raffleId The raffleId of the raffle being drawn
-    function drawRaffle(uint256 raffleId) external {
+    function drawRaffle(uint64 raffleId) external {
         Raffle storage raffle = raffles[raffleId];
         require(raffle.raffleState == RaffleState.ACTIVE || raffle.raffleState == RaffleState.CLOSED, "Raffle is already closed");
         
@@ -305,7 +306,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// the nft and Ethereum
     /// @param raffleId The raffle Id of the raffle being released
     /// @param batchId The batch Id of the batch including the winning ticket
-    function release(uint256 raffleId, uint256 batchId) external {
+    function release(uint64 raffleId, uint96 batchId) external {
         Raffle storage raffle = raffles[raffleId];
         require(raffle.raffleState == RaffleState.DRAWN, "Invalid raffle state");
 
@@ -347,7 +348,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @dev Changes a raffles state to REFUNDED, allowing participants to be issued refunds.
     /// A raffle can be refunded 2 days after it has expired, and is not in a RELEASED state
     /// @param raffleId The raffle id of the raffle being refunded
-    function refundRaffle(uint256 raffleId) external {
+    function refundRaffle(uint64 raffleId) external {
         Raffle storage raffle = raffles[raffleId];
         require(raffle.raffleState != RaffleState.RELEASED && raffle.raffleState != RaffleState.REFUNDED, "Invalid raffle state");
         require(block.timestamp > raffle.expiryTimestamp + 2 days, "Raffle must be closed for at least 2 days before being refunded");
@@ -357,7 +358,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
 
     /// @dev Issues a refund to an individual participant for all tickets purchased (sum of all ticket batches)
     /// @param raffleId The raffle id of the raffle being refunded
-    function refundTickets(uint256 raffleId) external {
+    function refundTickets(uint64 raffleId) external {
         Raffle storage raffle = raffles[raffleId];
         require(raffle.raffleState == RaffleState.REFUNDED, "Raffle is not refunded");
         TicketOwner storage ticketData = ticketOwners[raffleId][msg.sender];
@@ -373,7 +374,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
 
     /// @dev Returns the NFT of a refunded raffle to the raffle owner
     /// @param raffleId The raffle id of the raffle
-    function claimRefundedNft(uint256 raffleId) external {
+    function claimRefundedNft(uint64 raffleId) external {
         Raffle storage raffle = raffles[raffleId];
         require(raffle.raffleState == RaffleState.REFUNDED, "Invalid raffle state");
         IERC721 nftContract = IERC721(raffle.nftAddress);
@@ -423,9 +424,9 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param requestId The chainlinkRequestId which maps to raffle id
     /// @param randomWords random words sent by chainlink
     function fulfillRandomWords(uint256 requestId , uint256[] memory randomWords) internal override {
-        uint256 raffleId = chainlinkRequestIdMap[requestId];
+        uint64 raffleId = chainlinkRequestIdMap[requestId];
         Raffle storage raffle = raffles[raffleId];
-        uint256 winningTicket = (randomWords[0] % raffle.ticketsSold) + 1;
+        uint96 winningTicket = uint96(randomWords[0] % raffle.ticketsSold) + 1;
         raffle.winningTicket = winningTicket;
         raffle.raffleState = RaffleState.DRAWN;
         emit RaffleDrawn(raffleId, winningTicket);
