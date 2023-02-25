@@ -19,7 +19,18 @@ import "./interface/IRoyaltyFeeRegistry.sol";
 /// Collection royalties are honoured with a max payout of 10%
 
 contract DeRafl is VRFConsumerBaseV2, Ownable {
-
+error InvalidRaffleState();
+error InvalidExpiryTimestamp();
+error CreateNotEnabled();
+error EthInputTooSmall();
+error EthInputInvalid();
+error TicketAmountInvalid();
+error MsgValueInvalid();
+error RaffleBatchNotWinner();
+error SendEthFailed();
+error TimeSinceExpiryInsufficientForRefund();
+error TicketsAlreadyRefunded();
+error RaffleOwnerCannotPurchaseTickets();
     // CONSTANTS
     /// @dev ERC721 interface
     bytes4 public constant INTERFACE_ID_ERC721 = 0x80ac58cd;
@@ -209,12 +220,13 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param expiryTimestamp How many days until the raffle expires
     /// @param ethInput The maximum amount of Eth to be raised for the raffle
     function createRaffle(address nftAddress, uint256 tokenId, uint64 expiryTimestamp, uint96 ethInput) external {
-        require(createEnabled, "Create is not enabled");
+        if (!createEnabled) revert CreateNotEnabled();
         uint256 duration = expiryTimestamp - block.timestamp;
-        require(expiryTimestamp > block.timestamp && duration <= MAX_RAFFLE_DURATION_SECONDS, "Invalid expiry timestamp");
+        if (duration > MAX_RAFFLE_DURATION_SECONDS) revert InvalidExpiryTimestamp();
         require((IERC165(nftAddress).supportsInterface(INTERFACE_ID_ERC721)), "NFTAddress must be ERC721");
-        require(ethInput % TICKET_PRICE == 0, "Input must be divisible by ticket price");
-        require(ethInput >= MIN_ETH, "Invalid eth");
+        if (ethInput % TICKET_PRICE != 0) revert EthInputInvalid();
+        if (ethInput < MIN_ETH) revert EthInputTooSmall();
+
         IERC721 nftContract = IERC721(nftAddress);
         Raffle storage raffle = raffles[raffleNonce];
         raffle.raffleState = RaffleState.ACTIVE;
@@ -245,17 +257,14 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param raffleId The address of the NFT being raffled
     /// @param ticketAmount The amount of tickets to purchase
     function buyTickets(uint64 raffleId, uint96 ticketAmount) external payable {
-        require(ticketAmount > 0, "Cannot purchase 0 tickets");
         Raffle storage raffle = raffles[raffleId];
-        // require(msg.sender != raffle.raffleOwner, "Owner cannot purchase tickets");
-        require(raffle.raffleState == RaffleState.ACTIVE, "Invalid Raffle State");
-        require(raffle.expiryTimestamp > block.timestamp, "Raffle has expired");
+        if (msg.sender == raffle.raffleOwner) revert RaffleOwnerCannotPurchaseTickets();
+        if (raffle.raffleState != RaffleState.ACTIVE || block.timestamp > raffle.expiryTimestamp) revert InvalidRaffleState();
         uint256 ticketsRemaining = raffle.ticketsAvailable - raffle.ticketsSold;
-        require(ticketAmount <= ticketsRemaining, "");
-        // uint256 ticketsToPurchase = ticketsRemaining >= ticketAmount ? ticketAmount : ticketsRemaining;
+        if (ticketAmount == 0 || ticketAmount > ticketsRemaining) revert TicketAmountInvalid();
 
         uint256 ethAmount = ticketAmount * TICKET_PRICE;
-        require(msg.value == ethAmount, "Insufficient msg.value");
+        if (ethAmount != msg.value) revert MsgValueInvalid();
 
         // refund any extra eth in the event that someone has over paid
         // or they are purchasing REMAINING tickets as their order could not be completely fulfilled
@@ -292,11 +301,11 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param raffleId The raffleId of the raffle being drawn
     function drawRaffle(uint64 raffleId) external {
         Raffle storage raffle = raffles[raffleId];
-        require(raffle.raffleState == RaffleState.ACTIVE || raffle.raffleState == RaffleState.CLOSED, "Raffle is already closed");
+        if (raffle.raffleState != RaffleState.ACTIVE) revert InvalidRaffleState();
         
         bool soldOut = raffle.ticketsSold == raffle.ticketsAvailable;
         bool isExpired = block.timestamp > raffle.expiryTimestamp;
-        require(soldOut || isExpired, "A raffle must either be sold out or expired in order to be drawn");
+        if (!soldOut && !isExpired) revert InvalidRaffleState();
 
         uint256 chainlinkRequestId = requestRandomNumber();
         chainlinkRequestIdMap[chainlinkRequestId] = raffleId;
@@ -313,13 +322,13 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param batchId The batch Id of the batch including the winning ticket
     function release(uint64 raffleId, uint96 batchId) external {
         Raffle storage raffle = raffles[raffleId];
-        require(raffle.raffleState == RaffleState.DRAWN, "Invalid raffle state");
+        if (raffle.raffleState != RaffleState.DRAWN) revert InvalidRaffleState();
 
         TicketBatch storage batch = ticketBatches[raffleId][batchId];
         uint256 winningTicket = raffle.winningTicket;
 
         // confirm that the batch passed in includes the winning ticket
-        require(winningTicket >= batch.startTicket && winningTicket <= batch.endTicket, "Batch is not the winner");
+        if (winningTicket < batch.startTicket || winningTicket > batch.endTicket) revert RaffleBatchNotWinner();
         address winner = batch.owner;
 
         // update state before making any transfers
@@ -337,14 +346,14 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
         uint256 ownerEth = ethRaised - protocolEth - royaltyEth;
 
         (bool feeCallSuccess,) = deraflFeeCollector.call{value: protocolEth}("");
-        require(feeCallSuccess, "Failed to transfer derafl eth");
+        if (!feeCallSuccess) revert SendEthFailed();
 
         (bool ownerCallSuccess,) = raffle.raffleOwner.call{value: ownerEth}("");
-        require(ownerCallSuccess, "Failed to transfer owner eth");
+        if (!ownerCallSuccess) revert SendEthFailed();
 
         if (royaltyEth > 0) {
             (bool royaltyCallSuccess,) = payable(raffle.royaltyRecipient).call{value: royaltyEth}("");
-            require(royaltyCallSuccess, "Failed to transfer royalty eth");
+            if (!royaltyCallSuccess) revert SendEthFailed();
         }
 
         emit RaffleReleased(raffleId, winner, royaltyEth, ownerEth);
@@ -355,8 +364,8 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param raffleId The raffle id of the raffle being refunded
     function refundRaffle(uint64 raffleId) external {
         Raffle storage raffle = raffles[raffleId];
-        require(raffle.raffleState != RaffleState.RELEASED && raffle.raffleState != RaffleState.REFUNDED, "Invalid raffle state");
-        require(block.timestamp > raffle.expiryTimestamp + 2 days, "Raffle must be closed for at least 2 days before being refunded");
+        if (raffle.raffleState == RaffleState.RELEASED || raffle.raffleState == RaffleState.REFUNDED) revert InvalidRaffleState();
+        if (block.timestamp < raffle.expiryTimestamp + 2 days) revert TimeSinceExpiryInsufficientForRefund();
         raffle.raffleState = RaffleState.REFUNDED;
         emit RaffleRefunded(raffleId);
     }
@@ -365,15 +374,15 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param raffleId The raffle id of the raffle being refunded
     function refundTickets(uint64 raffleId) external {
         Raffle storage raffle = raffles[raffleId];
-        require(raffle.raffleState == RaffleState.REFUNDED, "Raffle is not refunded");
+        if (raffle.raffleState != RaffleState.REFUNDED) revert InvalidRaffleState();
         TicketOwner storage ticketData = ticketOwners[raffleId][msg.sender];
-        require(!ticketData.isRefunded, "Tickets are already refunded");
+        if (ticketData.isRefunded) revert TicketsAlreadyRefunded();
 
         // update refunded before sending any eth
         ticketData.isRefunded = true;
         uint256 refundAmount = ticketData.ticketsOwned * TICKET_PRICE;
         (bool success,) = payable(msg.sender).call{value: refundAmount}("");
-        require(success, "Failed to transfer refund eth");
+        if (!success) revert SendEthFailed();
         emit TicketRefunded(raffleId, msg.sender, refundAmount);
     }
 
@@ -381,9 +390,8 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param raffleId The raffle id of the raffle
     function claimRefundedNft(uint64 raffleId) external {
         Raffle storage raffle = raffles[raffleId];
-        require(raffle.raffleState == RaffleState.REFUNDED, "Invalid raffle state");
+        if (raffle.raffleState != RaffleState.REFUNDED) revert InvalidRaffleState();
         IERC721 nftContract = IERC721(raffle.nftAddress);
-        require(nftContract.ownerOf(raffle.tokenId) == address(this), "NFT is not held by raffle contract");
         nftContract.safeTransferFrom(address(this), raffle.raffleOwner, raffle.tokenId);
     }
 
