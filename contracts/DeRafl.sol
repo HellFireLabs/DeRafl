@@ -167,9 +167,14 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @notice DeRafl Returns information about a particular raffle
     /// @dev Returns the Raffle struct of the specified Id
     /// @param raffleId a parameter just like in doxygen (must be followed by parameter name)
-    /// @return rafl the Raffle struct at the specified raffleId
-    function getRaffle(uint64 raffleId) external view returns (Raffle memory rafl){
-        return raffles[raffleId];
+    /// @return raffle the Raffle struct at the specified raffleId
+    function getRaffle(uint64 raffleId) external view returns (Raffle memory raffle){
+        raffle = raffles[raffleId];
+        bool soldOut = raffle.ticketsSold == raffle.ticketsAvailable;
+        bool isExpired = block.timestamp > raffle.expiryTimestamp;
+        if (raffle.raffleState == RaffleState.ACTIVE && (soldOut || isExpired)) {
+            raffle.raffleState = RaffleState.CLOSED;
+        }
     }
 
     /// @notice DeRafl Returns an accounts particiaption for a raffle
