@@ -31,6 +31,11 @@ enum RaffleState {
   RELEASED,
 }
 
+enum TokenType {
+  ERC721,
+  ERC1155
+}
+
 describe("DeRafl", function () {
   async function createContractsFixture() {
     let vrfCoordinatorV2Mock = await ethers.getContractFactory(
@@ -83,7 +88,8 @@ describe("DeRafl", function () {
       nftMock.address,
       "1",
       expiry,
-      parseEther("10")
+      parseEther("10"),
+      TokenType.ERC721
     );
 
     return {
@@ -333,7 +339,8 @@ describe("DeRafl", function () {
           nftMock.address,
           tokenId,
           expiry,
-          parseEther("1")
+          parseEther("1"),
+          TokenType.ERC1155
         );
 
         await deraflAsAddress1.buyTickets("2", "100", {

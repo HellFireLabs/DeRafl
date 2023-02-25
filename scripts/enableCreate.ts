@@ -1,7 +1,7 @@
 import { parseEther } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
-const raffleAddress = '0xd084BBA05Df5FB177696fEFF02856ff7f8B782CA'
+const raffleAddress = '0x7ae04C915d7Ac028ae30062fa16Cc486c6ad0718'
 
 async function main() {
   const derafl = await ethers.getContractAt('DeRafl', raffleAddress)

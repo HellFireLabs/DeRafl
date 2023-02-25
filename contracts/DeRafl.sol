@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.18;
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "./interface/IRoyaltyFeeRegistry.sol";
 
 /// @title DeRafl
@@ -18,7 +20,7 @@ import "./interface/IRoyaltyFeeRegistry.sol";
 /// LooksRare royaltyFeeRegistry is used to determine royalty rates for collections.
 /// Collection royalties are honoured with a max payout of 10%
 
-contract DeRafl is VRFConsumerBaseV2, Ownable {
+contract DeRafl is VRFConsumerBaseV2, Ownable, ERC1155Holder {
     error InvalidRaffleState();
     error InvalidExpiryTimestamp();
     error CreateNotEnabled();
@@ -128,6 +130,11 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
         RELEASED
     }
 
+    enum TokenType {
+        ERC721,
+        ERC1155
+    }
+
     /// @dev Ticket Owner represents a participants total input in a raffle (sum of all ticket batches)
     struct TicketOwner {
         uint128 ticketsOwned;
@@ -156,6 +163,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
         uint64 raffleId;
         RaffleState raffleState;
         uint64 expiryTimestamp;
+        TokenType tokenType;
     }
 
     /// @dev LooksRare royaltyFeeRegistry
@@ -173,7 +181,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @dev address to collect protocol fee
     address payable deraflFeeCollector;
     /// @dev indicates if a raffle can be created
-    bool createEnabled = false;
+    bool createEnabled = true;
 
     constructor(
         uint64 _subscriptionId,
@@ -231,14 +239,13 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     /// @param tokenId The token id of the NFT being raffled
     /// @param expiryTimestamp How many days until the raffle expires
     /// @param ethInput The maximum amount of Eth to be raised for the raffle
-    function createRaffle(address nftAddress, uint256 tokenId, uint64 expiryTimestamp, uint96 ethInput) external {
+    function createRaffle(address nftAddress, uint256 tokenId, uint64 expiryTimestamp, uint96 ethInput, TokenType tokenType) external {
         if (!createEnabled) revert CreateNotEnabled();
         uint256 duration = expiryTimestamp - block.timestamp;
         if (duration > MAX_RAFFLE_DURATION_SECONDS) revert InvalidExpiryTimestamp();
         if (ethInput % TICKET_PRICE != 0) revert EthInputInvalid();
         if (ethInput < MIN_ETH) revert EthInputTooSmall();
 
-        IERC721 nftContract = IERC721(nftAddress);
         Raffle storage raffle = raffles[raffleNonce];
         raffle.raffleState = RaffleState.ACTIVE;
         raffle.raffleId = raffleNonce;
@@ -248,12 +255,13 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
         raffle.tokenId = tokenId;
         raffle.ticketsAvailable = ethInput / TICKET_PRICE;
         raffle.expiryTimestamp = expiryTimestamp;
+        raffle.tokenType = tokenType;
 
         // set royalty info at creation to avoid unexpected changes in royalties when raffle is closed
         (address royaltyRecipient, uint64 royaltyPercentage) = getRoyaltyInfo(nftAddress, tokenId);
         raffle.royaltyPercentage = royaltyPercentage;
         raffle.royaltyRecipient = royaltyRecipient;
-        nftContract.transferFrom(msg.sender, address(this), tokenId);
+        transferNft(nftAddress, msg.sender, address(this), tokenId, tokenType);
         emit RaffleOpened(raffle.raffleId, nftAddress, tokenId, raffle.ticketsAvailable, raffle.expiryTimestamp);
     }
 
@@ -336,8 +344,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
         raffle.raffleState = RaffleState.RELEASED;
 
         // send the nft to the winner
-        IERC721 nftContract = IERC721(raffle.nftAddress);
-        nftContract.safeTransferFrom(address(this), winner, raffle.tokenId);
+        transferNft(raffle.nftAddress, address(this), winner, raffle.tokenId, raffle.tokenType);
         raffle.winner = winner;
 
         // allocate and send the Eth
@@ -395,8 +402,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     function claimRefundedNft(uint64 raffleId) external {
         Raffle storage raffle = raffles[raffleId];
         if (raffle.raffleState != RaffleState.REFUNDED) revert InvalidRaffleState();
-        IERC721 nftContract = IERC721(raffle.nftAddress);
-        nftContract.safeTransferFrom(address(this), raffle.raffleOwner, raffle.tokenId);
+        transferNft(raffle.nftAddress, address(this), raffle.raffleOwner, raffle.tokenId, raffle.tokenType);
     }
 
     /// @notice Gets the royalty fee percentage of an nft. Returns a maximum of 10%
@@ -449,5 +455,22 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
         raffle.winningTicket = winningTicket;
         raffle.raffleState = RaffleState.DRAWN;
         emit RaffleDrawn(raffleId, winningTicket);
+    }
+
+    /// @notice DeRafl transfers a erc721 or erc1155 token
+    /// @dev uses the required interface depending on tokenType
+    /// @param tokenAddress the address of the token
+    /// @param from the owner transferring the token
+    /// @param to the recipient of the token
+    /// @param tokenId tokenId of the token being transfered
+    /// @param tokenType the type of the token being transferred
+    function transferNft(address tokenAddress, address from, address to, uint256 tokenId, TokenType tokenType) internal {
+        if (tokenType == TokenType.ERC721) {
+            IERC721 nftContract = IERC721(tokenAddress);
+            nftContract.transferFrom(from, to, tokenId);
+        } else {
+            IERC1155 nftContract = IERC1155(tokenAddress);
+            nftContract.safeTransferFrom(from, to, tokenId, 1, "");
+        }
     }
 }
