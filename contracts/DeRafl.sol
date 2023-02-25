@@ -265,13 +265,6 @@ error RaffleOwnerCannotPurchaseTickets();
         uint256 ethAmount = ticketAmount * TICKET_PRICE;
         if (ethAmount != msg.value) revert MsgValueInvalid();
 
-        // refund any extra eth in the event that someone has over paid
-        // or they are purchasing REMAINING tickets as their order could not be completely fulfilled
-        // if (ethAmount < msg.value) {
-        //     uint256 amountOver = msg.value - ethAmount;
-        //     payable(msg.sender).transfer(amountOver);
-        // }
-
         // increment the total tickets bought for this raffle by this address
         TicketOwner storage ticketData = ticketOwners[raffleId][msg.sender];
         ticketData.ticketsOwned += ticketAmount;
@@ -285,10 +278,6 @@ error RaffleOwnerCannotPurchaseTickets();
 
         raffle.ticketsSold += ticketAmount;
         raffle.batchIndex ++;
-
-        // if (raffle.ticketsSold == raffle.ticketsAvailable) {
-        //     raffle.raffleState = RaffleState.CLOSED;
-        // }
         emit TicketPurchased(raffleId, batchId, msg.sender, batch.startTicket, ticketAmount);
     }
 
