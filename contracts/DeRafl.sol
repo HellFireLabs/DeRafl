@@ -119,14 +119,14 @@ contract DeRafl is VRFConsumerBaseV2, Ownable {
     }
 
     struct Raffle {
-        address royaltyRecipient;       //20
-        uint96 winningTicket;           //12
-        address nftAddress;             //20
-        uint96 ticketsAvailable;        //12
-        address payable raffleOwner;    //20
-        uint96 ticketsSold;             //12
-        address winner;                 //20
-        uint96 batchIndex;              //12
+        address royaltyRecipient;
+        uint96 winningTicket;
+        address nftAddress;
+        uint96 ticketsAvailable;
+        address payable raffleOwner;
+        uint96 ticketsSold;
+        address winner;
+        uint96 batchIndex;
         uint256 chainlinkRequestId;
         uint256 tokenId;
         uint64 royaltyPercentage;
