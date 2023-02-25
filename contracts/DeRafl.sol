@@ -19,18 +19,18 @@ import "./interface/IRoyaltyFeeRegistry.sol";
 /// Collection royalties are honoured with a max payout of 10%
 
 contract DeRafl is VRFConsumerBaseV2, Ownable {
-error InvalidRaffleState();
-error InvalidExpiryTimestamp();
-error CreateNotEnabled();
-error EthInputTooSmall();
-error EthInputInvalid();
-error TicketAmountInvalid();
-error MsgValueInvalid();
-error RaffleBatchNotWinner();
-error SendEthFailed();
-error TimeSinceExpiryInsufficientForRefund();
-error TicketsAlreadyRefunded();
-error RaffleOwnerCannotPurchaseTickets();
+    error InvalidRaffleState();
+    error InvalidExpiryTimestamp();
+    error CreateNotEnabled();
+    error EthInputTooSmall();
+    error EthInputInvalid();
+    error TicketAmountInvalid();
+    error MsgValueInvalid();
+    error RaffleBatchNotWinner();
+    error SendEthFailed();
+    error TimeSinceExpiryInsufficientForRefund();
+    error TicketsAlreadyRefunded();
+    error RaffleOwnerCannotPurchaseTickets();
     // CONSTANTS
     /// @dev ERC721 interface
     bytes4 public constant INTERFACE_ID_ERC721 = 0x80ac58cd;
@@ -57,7 +57,7 @@ error RaffleOwnerCannotPurchaseTickets();
     bytes32 keyHash = 0x79d3d8832d904592c0bf9818b621522c988bb8b0c05cdc3b15aea1b6e8db0c15;
     uint32 callbackGasLimit = 40000;
     uint16 requestConfirmations = 3;
-    uint32 numWords =  1;
+    uint32 numWords = 1;
     VRFCoordinatorV2Interface COORDINATOR;
 
     /// @dev Emitted when a raffle is created
@@ -66,7 +66,13 @@ error RaffleOwnerCannotPurchaseTickets();
     /// @param tokenId The tokenId of the NFT being raffled
     /// @param tickets Maximum amount of tickets to be sold
     /// @param expires The timestamp when the raffle expires
-    event RaffleOpened(uint64 indexed raffleId, address indexed nftAddress, uint256 tokenId, uint96 tickets, uint64 expires);
+    event RaffleOpened(
+        uint64 indexed raffleId,
+        address indexed nftAddress,
+        uint256 tokenId,
+        uint96 tickets,
+        uint64 expires
+    );
 
     /// @dev Emitted when a raffle is closed
     /// @param raffleId The id of the raffle being closed
@@ -94,7 +100,13 @@ error RaffleOwnerCannotPurchaseTickets();
     /// @param purchaser The address of the account making the purchase
     /// @param ticketFrom The first ticket of the ticket batch
     /// @param ticketAmount The amount of tickets being purchased
-    event TicketPurchased(uint64 indexed raffleId, uint96 batchId, address indexed purchaser, uint96 ticketFrom, uint96 ticketAmount);
+    event TicketPurchased(
+        uint64 indexed raffleId,
+        uint96 batchId,
+        address indexed purchaser,
+        uint96 ticketFrom,
+        uint96 ticketAmount
+    );
 
     /// @dev Emitted when a refund has been placed
     /// @param raffleId The raffle id of the raffle being refunded
@@ -162,7 +174,7 @@ error RaffleOwnerCannotPurchaseTickets();
     address payable deraflFeeCollector;
     /// @dev indicates if a raffle can be created
     bool createEnabled = false;
-    
+
     constructor(
         uint64 _subscriptionId,
         address _vrfCoordinator,
@@ -179,7 +191,7 @@ error RaffleOwnerCannotPurchaseTickets();
     /// @dev Returns the Raffle struct of the specified Id
     /// @param raffleId a parameter just like in doxygen (must be followed by parameter name)
     /// @return raffle the Raffle struct at the specified raffleId
-    function getRaffle(uint64 raffleId) external view returns (Raffle memory raffle){
+    function getRaffle(uint64 raffleId) external view returns (Raffle memory raffle) {
         raffle = raffles[raffleId];
         bool soldOut = raffle.ticketsSold == raffle.ticketsAvailable;
         bool isExpired = block.timestamp > raffle.expiryTimestamp;
@@ -194,7 +206,7 @@ error RaffleOwnerCannotPurchaseTickets();
     /// @param raffleId The raffle Id of the raffle being queried
     /// @param ticketOwner The address of the participant being queried
     /// @return TicketOwner
-    function getUserInfo(uint64 raffleId, address ticketOwner) external view returns(TicketOwner memory) {
+    function getUserInfo(uint64 raffleId, address ticketOwner) external view returns (TicketOwner memory) {
         return ticketOwners[raffleId][ticketOwner];
     }
 
@@ -203,7 +215,7 @@ error RaffleOwnerCannotPurchaseTickets();
     /// @param raffleId The raffle Id of the TicketBatch being queried
     /// @param batchId The batchId for the TicketBatch being queried
     /// @return TicketBatch
-    function getBatchInfo(uint64 raffleId, uint96 batchId) external view returns(TicketBatch memory) {
+    function getBatchInfo(uint64 raffleId, uint96 batchId) external view returns (TicketBatch memory) {
         return ticketBatches[raffleId][batchId];
     }
 
@@ -214,7 +226,7 @@ error RaffleOwnerCannotPurchaseTickets();
     }
 
     /// @notice DeRafl Creates a new raffle
-    /// @dev Creates a new raffle and adds it to the raffles mapping 
+    /// @dev Creates a new raffle and adds it to the raffles mapping
     /// @param nftAddress The address of the NFT being raffled
     /// @param tokenId The token id of the NFT being raffled
     /// @param expiryTimestamp How many days until the raffle expires
@@ -230,7 +242,7 @@ error RaffleOwnerCannotPurchaseTickets();
         Raffle storage raffle = raffles[raffleNonce];
         raffle.raffleState = RaffleState.ACTIVE;
         raffle.raffleId = raffleNonce;
-        raffleNonce ++;
+        raffleNonce++;
         raffle.raffleOwner = payable(msg.sender);
         raffle.nftAddress = nftAddress;
         raffle.tokenId = tokenId;
@@ -258,7 +270,8 @@ error RaffleOwnerCannotPurchaseTickets();
     function buyTickets(uint64 raffleId, uint96 ticketAmount) external payable {
         Raffle storage raffle = raffles[raffleId];
         if (msg.sender == raffle.raffleOwner) revert RaffleOwnerCannotPurchaseTickets();
-        if (raffle.raffleState != RaffleState.ACTIVE || block.timestamp > raffle.expiryTimestamp) revert InvalidRaffleState();
+        if (raffle.raffleState != RaffleState.ACTIVE || block.timestamp > raffle.expiryTimestamp)
+            revert InvalidRaffleState();
         uint256 ticketsRemaining = raffle.ticketsAvailable - raffle.ticketsSold;
         if (ticketAmount == 0 || ticketAmount > ticketsRemaining) revert TicketAmountInvalid();
 
@@ -277,7 +290,7 @@ error RaffleOwnerCannotPurchaseTickets();
         batch.endTicket = raffle.ticketsSold + ticketAmount;
 
         raffle.ticketsSold += ticketAmount;
-        raffle.batchIndex ++;
+        raffle.batchIndex++;
         emit TicketPurchased(raffleId, batchId, msg.sender, batch.startTicket, ticketAmount);
     }
 
@@ -290,7 +303,7 @@ error RaffleOwnerCannotPurchaseTickets();
     function drawRaffle(uint64 raffleId) external {
         Raffle storage raffle = raffles[raffleId];
         if (raffle.raffleState != RaffleState.ACTIVE) revert InvalidRaffleState();
-        
+
         bool soldOut = raffle.ticketsSold == raffle.ticketsAvailable;
         bool isExpired = block.timestamp > raffle.expiryTimestamp;
         if (!soldOut && !isExpired) revert InvalidRaffleState();
@@ -304,7 +317,7 @@ error RaffleOwnerCannotPurchaseTickets();
     }
 
     /// @notice Completes a raffle, releases prize and accumulated Eth to relevant stake holders
-    /// @dev Validates that the batch referenced includes the winning ticket. Releases 
+    /// @dev Validates that the batch referenced includes the winning ticket. Releases
     /// the nft and Ethereum
     /// @param raffleId The raffle Id of the raffle being released
     /// @param batchId The batch Id of the batch including the winning ticket
@@ -329,18 +342,20 @@ error RaffleOwnerCannotPurchaseTickets();
 
         // allocate and send the Eth
         uint256 ethRaised = raffle.ticketsSold * TICKET_PRICE;
-        uint256 protocolEth = (ethRaised * DERAFL_FEE_PERCENTAGE / FEE_DENOMINATOR) + DERAFL_CHAINLINK_FEE;
-        uint256 royaltyEth = raffle.royaltyPercentage == 0 ? 0 : (ethRaised * raffle.royaltyPercentage) / FEE_DENOMINATOR;
+        uint256 protocolEth = ((ethRaised * DERAFL_FEE_PERCENTAGE) / FEE_DENOMINATOR) + DERAFL_CHAINLINK_FEE;
+        uint256 royaltyEth = raffle.royaltyPercentage == 0
+            ? 0
+            : (ethRaised * raffle.royaltyPercentage) / FEE_DENOMINATOR;
         uint256 ownerEth = ethRaised - protocolEth - royaltyEth;
 
-        (bool feeCallSuccess,) = deraflFeeCollector.call{value: protocolEth}("");
+        (bool feeCallSuccess, ) = deraflFeeCollector.call{value: protocolEth}("");
         if (!feeCallSuccess) revert SendEthFailed();
 
-        (bool ownerCallSuccess,) = raffle.raffleOwner.call{value: ownerEth}("");
+        (bool ownerCallSuccess, ) = raffle.raffleOwner.call{value: ownerEth}("");
         if (!ownerCallSuccess) revert SendEthFailed();
 
         if (royaltyEth > 0) {
-            (bool royaltyCallSuccess,) = payable(raffle.royaltyRecipient).call{value: royaltyEth}("");
+            (bool royaltyCallSuccess, ) = payable(raffle.royaltyRecipient).call{value: royaltyEth}("");
             if (!royaltyCallSuccess) revert SendEthFailed();
         }
 
@@ -352,7 +367,8 @@ error RaffleOwnerCannotPurchaseTickets();
     /// @param raffleId The raffle id of the raffle being refunded
     function refundRaffle(uint64 raffleId) external {
         Raffle storage raffle = raffles[raffleId];
-        if (raffle.raffleState == RaffleState.RELEASED || raffle.raffleState == RaffleState.REFUNDED) revert InvalidRaffleState();
+        if (raffle.raffleState == RaffleState.RELEASED || raffle.raffleState == RaffleState.REFUNDED)
+            revert InvalidRaffleState();
         if (block.timestamp < raffle.expiryTimestamp + 2 days) revert TimeSinceExpiryInsufficientForRefund();
         raffle.raffleState = RaffleState.REFUNDED;
         emit RaffleRefunded(raffleId);
@@ -369,7 +385,7 @@ error RaffleOwnerCannotPurchaseTickets();
         // update refunded before sending any eth
         ticketData.isRefunded = true;
         uint256 refundAmount = ticketData.ticketsOwned * TICKET_PRICE;
-        (bool success,) = payable(msg.sender).call{value: refundAmount}("");
+        (bool success, ) = payable(msg.sender).call{value: refundAmount}("");
         if (!success) revert SendEthFailed();
         emit TicketRefunded(raffleId, msg.sender, refundAmount);
     }
@@ -387,8 +403,11 @@ error RaffleOwnerCannotPurchaseTickets();
     /// @dev checks for erc2981 as a priority for royalties, followed by looksrare royaltyFeeRegistry
     /// @dev maximum 10% royalties
     /// @param nftAddress The address of the token being queried
-    function getRoyaltyInfo(address nftAddress, uint256 tokenId) public view returns(address feeReceiver, uint64 royaltyFee) {
-        (bool isErc2981) = IERC165(nftAddress).supportsInterface(INTERFACE_ID_ERC2981);
+    function getRoyaltyInfo(
+        address nftAddress,
+        uint256 tokenId
+    ) public view returns (address feeReceiver, uint64 royaltyFee) {
+        bool isErc2981 = IERC165(nftAddress).supportsInterface(INTERFACE_ID_ERC2981);
         if (isErc2981) {
             (bool status, bytes memory data) = nftAddress.staticcall(
                 abi.encodeWithSelector(IERC2981.royaltyInfo.selector, tokenId, FEE_DENOMINATOR)
@@ -397,7 +416,11 @@ error RaffleOwnerCannotPurchaseTickets();
                 (feeReceiver, royaltyFee) = abi.decode(data, (address, uint64));
             }
         } else {
-            try royaltyFeeRegistry.royaltyFeeInfoCollection(nftAddress) returns (address, address _feeReceiver, uint256 _royaltyFee) {
+            try royaltyFeeRegistry.royaltyFeeInfoCollection(nftAddress) returns (
+                address,
+                address _feeReceiver,
+                uint256 _royaltyFee
+            ) {
                 feeReceiver = _feeReceiver;
                 royaltyFee = uint64(_royaltyFee);
             } catch {
@@ -405,26 +428,21 @@ error RaffleOwnerCannotPurchaseTickets();
             }
         }
         royaltyFee = royaltyFee > MAX_ROYALTY_FEE_PERCENTAGE ? MAX_ROYALTY_FEE_PERCENTAGE : royaltyFee;
-        return(feeReceiver, royaltyFee);
+        return (feeReceiver, royaltyFee);
     }
 
     /// @dev Requests a random number from chainlink VRF
     /// @return chainlinkRequestId of the request
-    function requestRandomNumber() internal returns(uint256) {
-        return COORDINATOR.requestRandomWords(
-            keyHash,
-            subscriptionId,
-            requestConfirmations,
-            callbackGasLimit,
-            numWords
-        );
+    function requestRandomNumber() internal returns (uint256) {
+        return
+            COORDINATOR.requestRandomWords(keyHash, subscriptionId, requestConfirmations, callbackGasLimit, numWords);
     }
 
     /// @notice DeRafl Callable by chainlink VRF to receive a random number
     /// @dev Generates a winning ticket number between 0 - tickets sold for a raffle
     /// @param requestId The chainlinkRequestId which maps to raffle id
     /// @param randomWords random words sent by chainlink
-    function fulfillRandomWords(uint256 requestId , uint256[] memory randomWords) internal override {
+    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
         uint64 raffleId = chainlinkRequestIdMap[requestId];
         Raffle storage raffle = raffles[raffleId];
         uint96 winningTicket = uint96(randomWords[0] % raffle.ticketsSold) + 1;
