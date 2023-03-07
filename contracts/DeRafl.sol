@@ -14,7 +14,6 @@ import "./interface/IRoyaltyFeeRegistry.sol";
 /// @author 0xCappy
 /// @notice This contract is used by DeRafl to hold raffles for any erc721 token
 /// @dev Designed to be as trustless as possible.
-/// There are no owner functions.
 /// Chainlink VRF is used to determine a winning ticket of a raffle.
 /// A refund for a raffle can be initiated 2 days after a raffles expiry date if not already released.
 /// LooksRare royaltyFeeRegistry is used to determine royalty rates for collections.
@@ -39,28 +38,28 @@ contract DeRafl is VRFConsumerBaseV2, Ownable, ERC1155Holder {
     /// @dev ERC2981 interface
     bytes4 public constant INTERFACE_ID_ERC2981 = 0x2a55205a;
     /// @dev Maximum seconds a raffle can be active
-    uint256 constant MAX_RAFFLE_DURATION_SECONDS = 2592000; //30 days
+    uint256 internal constant MAX_RAFFLE_DURATION_SECONDS = 30 days;
     /// @dev Minimum amount of Eth
-    uint256 constant MIN_ETH = 0.1 ether;
+    uint256 internal constant MIN_ETH = 0.1 ether;
     /// @dev Maximum royalty fee percentage (10%)
-    uint256 constant FEE_DENOMINATOR = 10000;
+    uint256 internal constant FEE_DENOMINATOR = 10000;
     /// @dev Maximum royalty fee percentage (10%)
-    uint64 constant MAX_ROYALTY_FEE_PERCENTAGE = 1000;
+    uint64 internal constant MAX_ROYALTY_FEE_PERCENTAGE = 1000;
     /// @dev DeRafl protocol fee (5%)
-    uint256 constant DERAFL_FEE_PERCENTAGE = 500;
+    uint256 internal constant DERAFL_FEE_PERCENTAGE = 500;
     /// @dev DeRafl Chainlink Fee
-    uint256 constant DERAFL_CHAINLINK_FEE = 0.005 ether;
+    uint256 internal constant DERAFL_CHAINLINK_FEE = 0.005 ether;
     /// @dev Price per ticket
-    uint96 constant TICKET_PRICE = 0.001 ether;
+    uint96 internal constant TICKET_PRICE = 0.001 ether;
 
     // CHAINLINK
-    uint64 subscriptionId;
-    address vrfCoordinator;
-    bytes32 keyHash = 0x79d3d8832d904592c0bf9818b621522c988bb8b0c05cdc3b15aea1b6e8db0c15;
-    uint32 callbackGasLimit = 40000;
-    uint16 requestConfirmations = 3;
-    uint32 numWords = 1;
-    VRFCoordinatorV2Interface COORDINATOR;
+    uint64 internal subscriptionId;
+    address internal vrfCoordinator;
+    bytes32 internal keyHash = 0x79d3d8832d904592c0bf9818b621522c988bb8b0c05cdc3b15aea1b6e8db0c15;
+    uint32 internal callbackGasLimit = 40000;
+    uint16 internal requestConfirmations = 3;
+    uint32 internal numWords = 1;
+    VRFCoordinatorV2Interface internal COORDINATOR;
 
     /// @dev Emitted when a raffle is created
     /// @param raffleId The id of the raffle created
@@ -181,7 +180,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable, ERC1155Holder {
     /// @dev address to collect protocol fee
     address payable deraflFeeCollector;
     /// @dev indicates if a raffle can be created
-    bool createEnabled = true;
+    bool createEnabled = false;
 
     constructor(
         uint64 _subscriptionId,
@@ -268,7 +267,6 @@ contract DeRafl is VRFConsumerBaseV2, Ownable, ERC1155Holder {
     /// @notice DeRafl Purchase tickets for a raffle
     /// @dev Allows a user to purchase a ticket batch for a raffle.
     /// Validates the raffle state.
-    /// Refunds extra Eth if overpayed, or if tickets remaining < tickets intended to purchase.
     /// Creates a new ticketBatch and adds to ticketBatches mapping.
     /// Increments ticketOwner in ticketOwners mapping.
     /// Update state of Raffle with specified raffleId.
