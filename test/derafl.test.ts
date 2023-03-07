@@ -340,7 +340,7 @@ describe("DeRafl", function () {
           tokenId,
           expiry,
           parseEther("1"),
-          TokenType.ERC1155
+          TokenType.ERC721
         );
 
         await deraflAsAddress1.buyTickets("2", "100", {

@@ -10,6 +10,7 @@ const {
   ETH_MAINNET_URL,
   PRIVATE_KEY,
   ETHERSCAN_API_KEY,
+  TEST_DEPLOYER_PRIVATE_KEY
 }: any = env().parsed;
 
 const config: HardhatUserConfig = {
@@ -19,13 +20,13 @@ const config: HardhatUserConfig = {
       chainId: 1337,
       forking: {
         url: GOERLI_RPC_URL || '',
-        blockNumber: 8492483
+        blockNumber: 8610251
       }
     },
-    // mainnet: {
-    //   url: ETH_MAINNET_URL || '',
-    //   accounts: [PRIVATE_KEY!]
-    // },
+    mainnet: {
+      url: ETH_MAINNET_URL || '',
+      accounts: [TEST_DEPLOYER_PRIVATE_KEY!]
+    },
     goerli: {
       url: GOERLI_RPC_URL,
       accounts: [PRIVATE_KEY]
