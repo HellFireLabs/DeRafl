@@ -32,6 +32,8 @@ contract DeRafl is VRFConsumerBaseV2, Ownable, ERC1155Holder {
     error TimeSinceExpiryInsufficientForRefund();
     error TicketsAlreadyRefunded();
     error RaffleOwnerCannotPurchaseTickets();
+    error InsufficientTicketsSold();
+
     // CONSTANTS
     /// @dev ERC721 interface
     bytes4 public constant INTERFACE_ID_ERC721 = 0x80ac58cd;
@@ -180,7 +182,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable, ERC1155Holder {
     /// @dev address to collect protocol fee
     address payable deraflFeeCollector;
     /// @dev indicates if a raffle can be created
-    bool createEnabled = false;
+    bool createEnabled = true;
 
     constructor(
         uint64 _subscriptionId,
@@ -303,12 +305,14 @@ contract DeRafl is VRFConsumerBaseV2, Ownable, ERC1155Holder {
     /// @notice DeRafl starts the drawing process for a raffle
     /// @dev Sends a request to chainlink VRF for a random number used to draw a winner.
     /// Validates raffleState is closed (sold out), or raffle is expired.
+    /// Validates tickets sold > 5 to enusre fees can be covered.
     /// Stores the chainlinkRequestId in chainlinkRequestIdMap against the raffleId.
     /// emits raffle closed event.
     /// @param raffleId The raffleId of the raffle being drawn
     function drawRaffle(uint64 raffleId) external {
         Raffle storage raffle = raffles[raffleId];
         if (raffle.raffleState != RaffleState.ACTIVE) revert InvalidRaffleState();
+        if (raffle.ticketsSold < 6) revert InsufficientTicketsSold();
 
         bool soldOut = raffle.ticketsSold == raffle.ticketsAvailable;
         bool isExpired = block.timestamp > raffle.expiryTimestamp;
