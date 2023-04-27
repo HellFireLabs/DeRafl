@@ -33,73 +33,12 @@ enum TokenType {
 }
 
 describe("DeRafl", function () {
-  async function createContractsFixture() {
-    let vrfCoordinatorV2Mock = await ethers.getContractFactory(
-      "VRFCoordinatorV2Mock"
-    );
-    const hardhatVrfCoordinatorV2Mock = await vrfCoordinatorV2Mock.deploy(0, 0);
-    await hardhatVrfCoordinatorV2Mock.createSubscription();
-    await hardhatVrfCoordinatorV2Mock.fundSubscription(
-      SUBCSCRIPTION_ID,
-      ethers.utils.parseEther("500")
-    );
-    const DeRafl = await ethers.getContractFactory("DeRafl");
-
-    const derafl = await DeRafl.deploy(
-      SUBCSCRIPTION_ID,
-      hardhatVrfCoordinatorV2Mock.address,
-      ROYALTY_REGISTRY_ADDRESS,
-      FEE_COLLECTOR
-    );
-    await hardhatVrfCoordinatorV2Mock.addConsumer("1", derafl.address);
-
-    const NFTMock: NFTMock__factory = (await ethers.getContractFactory(
-      "NFTMock"
-    )) as NFTMock__factory;
-    const nftMock = await NFTMock.deploy();
-    const signers = await ethers.getSigners();
-
-    const royaltyFeeSetter = await ethers.getContractAt("IRoyaltyFeeSetter", ROYALTY_FEE_SETTER_ADDRESS)
-    await royaltyFeeSetter.updateRoyaltyInfoForCollectionIfOwner(nftMock.address, signers[0].address, ROYALTY_FEE_RECEIVER, '500')
-    return { hardhatVrfCoordinatorV2Mock, derafl, nftMock, signers };
-  }
-
-  async function createContractsAndRaffleFixture() {
-    const { hardhatVrfCoordinatorV2Mock, derafl, nftMock } =
-      await createContractsFixture();
-    const [owner, raffleCreator, address1, address2, address3] =
-      await ethers.getSigners();
-    await nftMock.safeMint(raffleCreator.address);
-    const nftMockAsCreator = await nftMock.connect(raffleCreator);
-    await nftMockAsCreator.setApprovalForAll(derafl.address, true)
-    const deraflAsRaffleCreator = await derafl.connect(raffleCreator);
-    await derafl.toggleCreateEnabled()
-    const blockTime = await time.latest()
-    const expiry = blockTime + (60 * 60 * 24 * 1)
-    await deraflAsRaffleCreator.createRaffle(
-      nftMock.address,
-      "1",
-      expiry,
-      parseEther("10"),
-      TokenType.ERC721
-    );
-
-    return {
-      hardhatVrfCoordinatorV2Mock,
-      derafl,
-      nftMock,
-      owner,
-      raffleCreator,
-      address1,
-      address2,
-      address3,
-    };
-  }
 
   describe("Raffle process", async function () {
     let derafl: DeRafl;
     let nftMock: NFTMock;
     let raffleCreator: SignerWithAddress;
+    let owner: SignerWithAddress;
     let address1: SignerWithAddress;
     let address2: SignerWithAddress;
     let address3: SignerWithAddress;
@@ -107,21 +46,55 @@ describe("DeRafl", function () {
     let deraflAsAddress1: DeRafl;
     let deraflAsAddress2: DeRafl;
     let deraflAsAddress3: DeRafl;
-    let hardhatVrfCoordinatorV2Mock: VRFCoordinatorV2Mock;
+    let vrfCoordinator: VRFCoordinatorV2Mock;
 
     before(async function () {
-      const setup = await loadFixture(createContractsAndRaffleFixture);
-      derafl = setup.derafl;
-      nftMock = setup.nftMock;
-      raffleCreator = setup.raffleCreator;
-      address1 = setup.address1;
-      address2 = setup.address2;
-      address3 = setup.address3;
+      let vrfCoordinatorV2Mock = await ethers.getContractFactory(
+        "VRFCoordinatorV2Mock"
+      );
+      vrfCoordinator = await vrfCoordinatorV2Mock.deploy(0, 0);
+      await vrfCoordinator.createSubscription();
+      await vrfCoordinator.fundSubscription(
+        SUBCSCRIPTION_ID,
+        ethers.utils.parseEther("500")
+      );
+      const DeRafl = await ethers.getContractFactory("DeRafl");
+
+      derafl = await DeRafl.deploy(
+        SUBCSCRIPTION_ID,
+        vrfCoordinator.address,
+        ROYALTY_REGISTRY_ADDRESS,
+        FEE_COLLECTOR
+      );
+      await vrfCoordinator.addConsumer("1", derafl.address);
+
+      const NFTMock: NFTMock__factory = (await ethers.getContractFactory(
+        "NFTMock"
+      )) as NFTMock__factory;
+      nftMock = await NFTMock.deploy();
+      [owner, raffleCreator, address1, address2, address3] =
+        await ethers.getSigners();
+
+      const royaltyFeeSetter = await ethers.getContractAt("IRoyaltyFeeSetter", ROYALTY_FEE_SETTER_ADDRESS)
+      await royaltyFeeSetter.updateRoyaltyInfoForCollectionIfOwner(nftMock.address, owner.address, ROYALTY_FEE_RECEIVER, '500')
+
+      await nftMock.safeMint(raffleCreator.address);
+      const nftMockAsCreator = await nftMock.connect(raffleCreator);
+      await nftMockAsCreator.setApprovalForAll(derafl.address, true)
       deraflAsRaffleCreator = await derafl.connect(raffleCreator);
+      await derafl.toggleCreateEnabled()
+      const blockTime = await time.latest()
+      const expiry = blockTime + (60 * 60 * 24 * 1)
+      await deraflAsRaffleCreator.createRaffle(
+        nftMock.address,
+        "1",
+        expiry,
+        parseEther("10"),
+        TokenType.ERC721
+      );
       deraflAsAddress1 = await derafl.connect(address1);
       deraflAsAddress2 = await derafl.connect(address2);
       deraflAsAddress3 = await derafl.connect(address3);
-      hardhatVrfCoordinatorV2Mock = setup.hardhatVrfCoordinatorV2Mock;  
     });
 
     describe("Sold Out Raffle", async function () {
@@ -197,7 +170,7 @@ describe("DeRafl", function () {
         expect(batchInfo.endTicket).to.equal('9000')
       });
 
-      it ("Reverts if ticket amount is higher than tickets remaining", async function () {
+      it("Reverts if ticket amount is higher than tickets remaining", async function () {
         // 1000 tickets remain, try to buy 2000
         await expect(
           deraflAsAddress3.buyTickets("1", "2000", {
@@ -206,7 +179,7 @@ describe("DeRafl", function () {
         ).to.be.revertedWithCustomError(derafl, "TicketAmountInvalid");
       })
 
-      it ("User can purchase remaining tickets", async function () {
+      it("User can purchase remaining tickets", async function () {
         // 1000 tickets remain, try to buy 2000
         await expect(
           deraflAsAddress3.buyTickets("1", "1000", {
@@ -247,7 +220,7 @@ describe("DeRafl", function () {
 
       it("Accepts hardhat random words callback", async function () {
         const raffleInfo = await derafl.getRaffle("1");
-        await hardhatVrfCoordinatorV2Mock.fulfillRandomWords(
+        await vrfCoordinator.fulfillRandomWords(
           raffleInfo.chainlinkRequestId,
           derafl.address
         );
@@ -298,7 +271,7 @@ describe("DeRafl", function () {
         const nftMockAsRaffleCreator = await nftMock.connect(raffleCreator);
         await nftMockAsRaffleCreator.approve(derafl.address, tokenId);
         const blockTime = await time.latest()
-        const expiry = blockTime + (60 * 60 * 24 * 1)    
+        const expiry = blockTime + (60 * 60 * 24 * 1)
         await deraflAsRaffleCreator.createRaffle(
           nftMock.address,
           tokenId,
@@ -424,6 +397,6 @@ describe("DeRafl", function () {
         expect(true).to.be.true
       })
 
-     })
+    })
   });
 });
