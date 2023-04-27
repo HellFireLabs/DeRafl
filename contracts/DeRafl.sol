@@ -182,7 +182,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable, ERC1155Holder {
     /// @dev address to collect protocol fee
     address payable deraflFeeCollector;
     /// @dev indicates if a raffle can be created
-    bool createEnabled = true;
+    bool createEnabled = false;
 
     constructor(
         uint64 _subscriptionId,

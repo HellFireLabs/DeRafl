@@ -11,10 +11,6 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { VRFCoordinatorV2Mock } from "../typechain-types/@chainlink/contracts/src/v0.8/mocks";
 import { NFTMock } from "../typechain-types/contracts/RAFL.sol";
 
-const TICKET_PRICE = parseEther("0.001");
-const BAYC_ADDRESS = "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D";
-const BAYC_OWNER = "0xFd4838E0bd3955Ffa902Cb0E6ffA93704F863232";
-const BAYC_TOKEN_ID = "7678";
 const SUBCSCRIPTION_ID = "1";
 const FEE_COLLECTOR = '0x49146F8ba80D5f24227543bBa3bB8e2c40ECC03D'
 const ROYALTY_REGISTRY_ADDRESS = '0x12405dB79325D06a973aD913D6e9BdA1343cD526'
@@ -65,10 +61,6 @@ describe("DeRafl", function () {
 
     const royaltyFeeSetter = await ethers.getContractAt("IRoyaltyFeeSetter", ROYALTY_FEE_SETTER_ADDRESS)
     await royaltyFeeSetter.updateRoyaltyInfoForCollectionIfOwner(nftMock.address, signers[0].address, ROYALTY_FEE_RECEIVER, '500')
-    
-    const royalties = await derafl.getRoyaltyInfo(nftMock.address, '1')
-    console.log("ROYLT = ", royalties)
-
     return { hardhatVrfCoordinatorV2Mock, derafl, nftMock, signers };
   }
 
@@ -118,9 +110,7 @@ describe("DeRafl", function () {
     let hardhatVrfCoordinatorV2Mock: VRFCoordinatorV2Mock;
 
     before(async function () {
-      console.log("STARTING BEFORE")
       const setup = await loadFixture(createContractsAndRaffleFixture);
-      console.log("Done setp")
       derafl = setup.derafl;
       nftMock = setup.nftMock;
       raffleCreator = setup.raffleCreator;
@@ -224,32 +214,6 @@ describe("DeRafl", function () {
           })
         ).to.not.be.reverted
       })
-
-
-      // it("Sells remaining tickets if desired ticket amount is too high, and refunds remaining eth", async function () {
-      //   // 1000 tickets remain, try to buy 2000
-      //   const buyerEthBalanceBefore = await ethers.provider.getBalance(
-      //     address3.address
-      //   );
-      //   const tx = await deraflAsAddress3.buyTickets("1", "2000", {
-      //     value: parseEther("0.001").mul("2000"),
-      //   });
-
-      //   const { gasUsed, effectiveGasPrice } = await tx.wait();
-      //   const buyerEthBalanceAfter = await ethers.provider.getBalance(
-      //     address3.address
-      //   );
-      //   const expectedEthBalanceAfter = buyerEthBalanceBefore
-      //     .sub(parseEther("0.001").mul("1000"))
-      //     .sub(gasUsed.mul(effectiveGasPrice));
-      //   expect(expectedEthBalanceAfter).to.equal(buyerEthBalanceAfter);
-
-      //   console.log("GAS USED: ", gasUsed.toBigInt())
-
-      //   const userInfo = await derafl.getUserInfo("1", address3.address);
-      //   expect(userInfo.ticketsOwned).to.equal("1000");
-      //   expect(userInfo.isRefunded).to.be.false;
-      // });
 
       it("Shows correct raffle state for sold out raffle", async function () {
         const raffleInfo = await derafl.getRaffle("1");
@@ -441,7 +405,6 @@ describe("DeRafl", function () {
         )) as NFTMock__factory;
         const mockNft = await NFTMock.deploy();
         const royalties = await derafl.getRoyaltyInfo(mockNft.address, '1')
-        console.log("ROYAL: ", royalties)
         expect(royalties.feeReceiver).to.equal(ethers.constants.AddressZero)
         expect(royalties.royaltyFee).to.equal('0')
       })
