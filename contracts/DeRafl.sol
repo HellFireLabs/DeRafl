@@ -45,12 +45,10 @@ contract DeRafl is VRFConsumerBaseV2, Ownable, ERC1155Holder {
     uint256 internal constant MIN_ETH = 0.1 ether;
     /// @dev Maximum royalty fee percentage (10%)
     uint256 internal constant FEE_DENOMINATOR = 10000;
-    /// @dev Maximum royalty fee percentage (10%)
-    uint64 internal constant MAX_ROYALTY_FEE_PERCENTAGE = 1000;
-    /// @dev DeRafl protocol fee (5%)
-    uint256 internal constant DERAFL_FEE_PERCENTAGE = 500;
-    /// @dev DeRafl Chainlink Fee
-    uint256 internal constant DERAFL_CHAINLINK_FEE = 0.005 ether;
+    /// @dev Maximum royalty fee percentage (5%)
+    uint64 internal constant MAX_ROYALTY_FEE_PERCENTAGE = 500;
+    /// @dev DeRafl protocol fee (0.55%)
+    uint256 internal constant DERAFL_FEE_PERCENTAGE = 50;
     /// @dev Price per ticket
     uint96 internal constant TICKET_PRICE = 0.001 ether;
 
@@ -351,7 +349,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable, ERC1155Holder {
 
         // allocate and send the Eth
         uint256 ethRaised = raffle.ticketsSold * TICKET_PRICE;
-        uint256 protocolEth = ((ethRaised * DERAFL_FEE_PERCENTAGE) / FEE_DENOMINATOR) + DERAFL_CHAINLINK_FEE;
+        uint256 protocolEth = ethRaised * DERAFL_FEE_PERCENTAGE / FEE_DENOMINATOR;
         uint256 royaltyEth = raffle.royaltyPercentage == 0
             ? 0
             : (ethRaised * raffle.royaltyPercentage) / FEE_DENOMINATOR;
