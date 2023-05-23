@@ -244,7 +244,7 @@ describe("DeRafl", function () {
 
         const feeCollectorBalanceAfter = await ethers.provider.getBalance(FEE_COLLECTOR)
         const ethRaised = BigNumber.from('10000').mul(parseEther('0.001'))
-        const deraflFee = ethRaised.mul('5').div('100').add(parseEther('0.005'))
+        const deraflFee = ethRaised.mul('5').div('1000')
         const expectedBalance = feeCollectorBalanceBefore.add(deraflFee)
         expect(feeCollectorBalanceAfter).to.equal(expectedBalance)
 
@@ -387,7 +387,7 @@ describe("DeRafl", function () {
         const nftWithRoyalties = await MockErc2981.deploy("test", "TEST", royaltyFeeReceiver.address)
         const royalties = await derafl.getRoyaltyInfo(nftWithRoyalties.address, '1')
         expect(royalties.feeReceiver).to.equal(royaltyFeeReceiver.address)
-        expect(royalties.royaltyFee).to.equal('1000')
+        expect(royalties.royaltyFee).to.equal('500')
       })
 
       it('Shows correct royalties for Looks rare registry', async function () {
