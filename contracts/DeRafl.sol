@@ -47,7 +47,7 @@ contract DeRafl is VRFConsumerBaseV2, Ownable, ERC1155Holder {
     uint256 internal constant FEE_DENOMINATOR = 10000;
     /// @dev Maximum royalty fee percentage (5%)
     uint64 internal constant MAX_ROYALTY_FEE_PERCENTAGE = 500;
-    /// @dev DeRafl protocol fee (0.55%)
+    /// @dev DeRafl protocol fee (0.5%)
     uint256 internal constant DERAFL_FEE_PERCENTAGE = 50;
     /// @dev Price per ticket
     uint96 internal constant TICKET_PRICE = 0.001 ether;
